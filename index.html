@@ -1,0 +1,1984 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>食堂仓库管理系统</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--pri:#1890ff;--pri-d:#096dd9;--pri-l:#e6f7ff;--suc:#52c41a;--suc-l:#f6ffed;--war:#faad14;--war-l:#fffbe6;--err:#ff4d4f;--err-l:#fff1f0;--bg:#f5f5f5;--card:#fff;--t1:#333;--t2:#666;--t3:#999;--bd:#e8e8e8;--r:10px;--sh:0 2px 8px rgba(0,0,0,.06)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--t1);font-size:18px;line-height:1.55;-webkit-font-smoothing:antialiased}
+input,select,textarea,button{font-family:inherit;font-size:18px}
+.hide{display:none!important}
+
+/* Login */
+.login{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#667eea,#764ba2);padding:20px}
+.login-box{text-align:center;width:100%;max-width:400px}
+.login-box h1{color:#fff;font-size:32px;margin-bottom:8px}
+.login-box .sub{color:rgba(255,255,255,.85);font-size:17px;margin-bottom:32px}
+.role-cards{display:flex;flex-direction:column;gap:12px}
+.role-card{background:rgba(255,255,255,.95);border-radius:var(--r);padding:20px 18px;display:flex;align-items:center;gap:16px;cursor:pointer;transition:transform .15s}
+.role-card:active{transform:scale(.97)}
+.role-card .ic{font-size:32px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;background:var(--pri-l);border-radius:12px;flex-shrink:0}
+.role-card .info{text-align:left;flex:1}
+.role-card .info .nm{font-size:20px;font-weight:600;color:var(--t1)}
+.role-card .info .ds{font-size:16px;color:var(--t2);margin-top:3px}
+.name-input{background:rgba(255,255,255,.95);border-radius:var(--r);padding:22px;margin-top:14px}
+.name-input input{width:100%;padding:14px;border:1px solid var(--bd);border-radius:10px;margin-bottom:12px;font-size:18px}
+.name-input button{width:100%;padding:14px;background:var(--pri);color:#fff;border:none;border-radius:10px;font-size:19px;font-weight:600}
+
+/* App */
+.app{max-width:600px;margin:0 auto;min-height:100vh;background:var(--bg);position:relative}
+.app-header{position:sticky;top:0;height:58px;background:var(--pri);color:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 18px;z-index:50;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+.app-header .title{font-size:21px;font-weight:600}
+.app-header .badge{font-size:14px;background:rgba(255,255,255,.25);padding:3px 10px;border-radius:12px}
+.page-content{padding:14px;padding-bottom:80px}
+
+/* Nav */
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:600px;height:62px;background:#fff;border-top:1px solid var(--bd);display:flex;z-index:100}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--t3);cursor:pointer;transition:color .15s}
+.nav-item.active{color:var(--pri)}
+.nav-item .ic{font-size:26px}
+.nav-item .lb{font-size:15px}
+
+/* Cards */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);padding:16px;margin-bottom:14px}
+.card-title{font-size:19px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between}
+.card-title .more{font-size:16px;color:var(--pri);font-weight:400;cursor:pointer}
+
+/* Stats */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.stat{background:var(--card);border-radius:var(--r);padding:16px 10px;text-align:center;box-shadow:var(--sh)}
+.stat .v{font-size:30px;font-weight:700}
+.stat .l{font-size:15px;color:var(--t3);margin-top:3px}
+.stat.danger .v{color:var(--err)}
+.stat.warning .v{color:var(--war)}
+.stat.success .v{color:var(--suc)}
+
+/* Tabs */
+.tabs{display:flex;gap:0;background:var(--card);border-radius:var(--r);overflow:hidden;margin-bottom:14px;box-shadow:var(--sh)}
+.tab{flex:1;padding:12px;text-align:center;font-size:17px;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:var(--pri);border-bottom-color:var(--pri);font-weight:600}
+
+/* Table */
+.tbl{width:100%;border-collapse:collapse;font-size:17px}
+.tbl th{background:#fafafa;padding:10px 8px;text-align:left;font-weight:600;color:var(--t2);white-space:nowrap;border-bottom:1px solid var(--bd)}
+.tbl td{padding:10px 8px;border-bottom:1px solid #f0f0f0}
+.tbl tr:active{background:#fafafa}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:14px}
+.tag-ok{background:var(--suc-l);color:var(--suc)}
+.tag-low{background:var(--err-l);color:var(--err)}
+.tag-exp{background:var(--war-l);color:var(--war)}
+
+/* Forms */
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:17px;color:var(--t2);margin-bottom:5px;font-weight:500}
+.form-group label .req{color:var(--err)}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 14px;border:1px solid var(--bd);border-radius:10px;background:#fff}
+.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 2px var(--pri-l)}
+.form-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;align-items:end}
+.form-row.form-row-3{grid-template-columns:repeat(3,1fr)}
+.form-row>.form-group{margin-bottom:0}
+.btn{padding:12px 18px;border:none;border-radius:10px;font-size:18px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.btn:active{opacity:.8}
+.btn-pri{background:var(--pri);color:#fff}
+.btn-out{background:#fff;color:var(--pri);border:1px solid var(--pri)}
+.btn-del{background:var(--err-l);color:var(--err)}
+.btn-block{width:100%;padding:14px;font-size:19px}
+.btn-sm{padding:7px 14px;font-size:15px}
+
+/* Alert */
+.alert{border-radius:var(--r);padding:14px;margin-bottom:14px;display:flex;gap:12px;align-items:flex-start}
+.alert-danger{background:var(--err-l);border-left:3px solid var(--err)}
+.alert-warning{background:var(--war-l);border-left:3px solid var(--war)}
+.alert .ic{font-size:20px;flex-shrink:0}
+.alert .body{flex:1}
+.alert .body .t{font-size:17px;font-weight:600;margin-bottom:5px}
+.alert .body .c{font-size:16px;color:var(--t2)}
+.alert .body .item{font-size:16px;color:var(--t2);margin-top:3px}
+
+/* Records */
+.record{background:var(--card);border-radius:var(--r);padding:14px;margin-bottom:10px;box-shadow:var(--sh);cursor:pointer}
+.record:active{background:#fafafa}
+.record .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.record .nm{font-size:18px;font-weight:600}
+.record .dt{font-size:15px;color:var(--t3)}
+.record .info{display:flex;gap:14px;font-size:16px;color:var(--t2)}
+.record .info span{display:flex;align-items:center;gap:3px}
+.record .qty{color:var(--pri);font-weight:600}
+
+/* More */
+.more-list{background:var(--card);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+.more-item{display:flex;align-items:center;gap:16px;padding:18px;cursor:pointer;border-bottom:1px solid #f0f0f0}
+.more-item:last-child{border-bottom:none}
+.more-item:active{background:#fafafa}
+.more-item .ic{font-size:24px;width:44px;text-align:center}
+.more-item .info{flex:1}
+.more-item .lb{font-size:18px;font-weight:500}
+.more-item .ds{font-size:16px;color:var(--t3);margin-top:3px}
+.more-item .arrow{color:var(--t3)}
+
+/* Modal */
+.modal-bg{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:200;display:flex;align-items:flex-end;justify-content:center}
+.modal{background:#fff;width:100%;max-width:600px;border-radius:16px 16px 0 0;max-height:90vh;overflow-y:auto}
+.modal-hd{padding:18px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;background:#fff;z-index:1}
+.modal-hd .t{font-size:20px;font-weight:600}
+.modal-hd .x{font-size:24px;color:var(--t3);cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.modal-bd{padding:18px}
+
+/* Toast */
+.toast{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.75);color:#fff;padding:14px 28px;border-radius:10px;font-size:18px;z-index:300;animation:fi .2s}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+
+/* Search */
+.search-bar{position:relative;margin-bottom:14px}
+.search-bar input{width:100%;padding:12px 14px 12px 40px;border:1px solid var(--bd);border-radius:10px;background:var(--card)}
+.search-bar .ic{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--t3)}
+
+/* Filter */
+.filter-row{display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.filter-row select,.filter-row input{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--card);font-size:17px}
+
+/* Report */
+.report-tbl{overflow-x:auto;background:var(--card);border-radius:var(--r);box-shadow:var(--sh);margin-bottom:14px}
+.report-tbl table{width:100%;border-collapse:collapse;font-size:16px;min-width:500px}
+.report-tbl th{background:#fafafa;padding:10px;text-align:left;font-weight:600;white-space:nowrap;border-bottom:2px solid var(--bd)}
+.report-tbl td{padding:10px;border-bottom:1px solid #f0f0f0}
+.report-tbl tr:hover{background:#fafafa}
+.report-tbl .total-row{background:var(--pri-l);font-weight:600}
+
+/* Check */
+.check-row{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid #f0f0f0}
+.check-row .nm{flex:1;font-size:17px}
+.check-row .sys{font-size:16px;color:var(--t3);width:70px;text-align:right}
+.check-row input{width:80px;padding:8px 10px;border:1px solid var(--bd);border-radius:8px;text-align:center}
+.check-row .diff{width:70px;text-align:center;font-size:16px;font-weight:600}
+
+/* Item manage */
+.item-row{display:flex;align-items:center;gap:12px;padding:14px;background:var(--card);border-radius:10px;margin-bottom:10px;box-shadow:var(--sh)}
+.item-row .info{flex:1}
+.item-row .info .nm{font-size:18px;font-weight:500}
+.item-row .info .sp{font-size:16px;color:var(--t3)}
+.item-row .stk{text-align:right}
+.item-row .stk .v{font-size:20px;font-weight:700}
+.item-row .stk .u{font-size:15px;color:var(--t3)}
+
+/* Cart */
+.cart-item{display:flex;align-items:center;gap:12px;padding:14px;background:var(--bg);border-radius:10px;margin-bottom:10px;border-left:3px solid var(--pri)}
+.cart-item .cart-info{flex:1;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cart-item .cart-wh{font-size:14px;color:var(--pri);background:var(--pri-l);padding:3px 10px;border-radius:12px;white-space:nowrap}
+.cart-item .cart-name{font-size:18px;font-weight:500}
+.cart-item .cart-qty{font-size:18px;font-weight:700;color:var(--t1)}
+
+/* Empty */
+.empty{text-align:center;padding:44px 24px;color:var(--t3)}
+.empty .ic{font-size:48px;margin-bottom:10px}
+.empty .t{font-size:18px}
+
+/* Responsive - Desktop full-width landscape, Mobile portrait */
+@media(min-width:768px){
+  .app{max-width:100%;box-shadow:none}
+  .bottom-nav{max-width:100%;left:0;transform:none;width:100%;height:68px}
+  .page-content{padding:24px 36px 96px}
+  .login-box{max-width:520px}
+  .form-row{grid-template-columns:repeat(2,1fr);gap:14px}
+  .form-row.form-row-3{grid-template-columns:repeat(3,1fr)}
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .stat .v{font-size:34px}
+  .stat .l{font-size:16px}
+  .report-tbl table{min-width:700px;font-size:17px}
+  .report-tbl th,.report-tbl td{padding:12px 14px}
+  .tbl{font-size:18px}
+  .tbl th,.tbl td{padding:12px 10px}
+  .modal{max-width:760px;border-radius:16px;margin:0 auto}
+  .modal-bg{align-items:center}
+  .card{padding:20px}
+  .more-list{max-width:100%}
+  .more-item{padding:20px 22px}
+  .search-bar input{padding:14px 16px 14px 44px;font-size:18px}
+  .filter-row select,.filter-row input{padding:12px 14px}
+  .nav-item .ic{font-size:28px}
+  .nav-item .lb{font-size:16px}
+  .app-header{height:62px;padding:0 36px}
+  .app-header .title{font-size:22px}
+  .cart-item{padding:16px}
+  .check-row{padding:14px}
+  .check-row input{width:90px;padding:10px}
+  .item-row{padding:16px}
+  .login-box h1{font-size:36px}
+  .login-box .sub{font-size:18px}
+  .role-card{padding:24px 20px}
+  .role-card .ic{font-size:36px;width:56px;height:56px}
+  .role-card .info .nm{font-size:21px}
+  .role-card .info .ds{font-size:17px}
+  .name-input{padding:26px}
+  .name-input input{padding:16px;font-size:19px}
+  .name-input button{padding:16px;font-size:20px}
+  .empty .ic{font-size:56px}
+  .empty .t{font-size:19px}
+}
+/* Print QR codes */
+@media print{
+  body *{visibility:hidden}
+  #printArea,#printArea *{visibility:visible}
+  #printArea{position:absolute;left:0;top:0;width:100%}
+  .qr-print-page{page-break-after:always;text-align:center;padding:20px}
+  .qr-print-page:last-child{page-break-after:auto}
+  .qr-print-title{font-size:28px;font-weight:700;margin:10px 0 5px}
+  .qr-print-sub{font-size:14px;color:#666;margin-bottom:15px}
+  .no-print{display:none!important}
+}
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="loginScreen" class="login">
+  <div class="login-box">
+    <h1>食堂仓库管理系统</h1>
+    <p class="sub">主食仓 + 副食仓 · 出入库全流程管理</p>
+    <div class="role-cards">
+      <div class="role-card" onclick="App.login('admin')">
+        <div class="ic">📦</div>
+        <div class="info"><div class="nm">仓库管理员</div><div class="ds">入库登记 · 盘点 · 全权限管理</div></div>
+      </div>
+      <div class="role-card" onclick="App.login('kitchen')">
+        <div class="ic">👨‍🍳</div>
+        <div class="info"><div class="nm">后厨领料员</div><div class="ds">扫码领料 · 查看自己的领料记录</div></div>
+      </div>
+      <div class="role-card" onclick="App.login('manager')">
+        <div class="ic">📊</div>
+        <div class="info"><div class="nm">食堂管理员</div><div class="ds">报表查看 · 库存监控 · 导出台账</div></div>
+      </div>
+    </div>
+    <div id="nameInputBox" class="name-input hide">
+      <p style="margin-bottom:8px;font-size:15px;color:var(--t2)">请选择您的班组和姓名</p>
+      <div class="form-group" style="margin-bottom:8px">
+        <select id="loginTeam" onchange="App.updateLoginStaff(this.value)">
+          <option value="">请选择班组</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:12px">
+        <select id="loginStaff" disabled>
+          <option value="">请先选择班组</option>
+        </select>
+      </div>
+      <button onclick="App.confirmLogin()">确认进入领料</button>
+    </div>
+    <div id="dedicatedEntryBox" class="name-input hide">
+      <p id="dedicatedHint" style="margin-bottom:12px;font-size:16px;color:var(--t2);text-align:center"></p>
+      <button id="dedicatedBtn" onclick="App.enterDedicated()">进入</button>
+    </div>
+    <p class="scan-hint" style="margin-top:18px;font-size:16px;color:var(--t3);text-align:center;line-height:1.7">
+      💡 也可扫描仓库张贴的二维码直接进入对应功能<br>
+      仓管员可在「更多 → 二维码管理」生成打印
+    </p>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" class="app hide">
+  <header class="app-header">
+    <span class="title" id="pageTitle">库存看板</span>
+    <span style="display:flex;align-items:center;gap:8px">
+      <span id="syncDot" style="width:8px;height:8px;border-radius:50%;background:#999;display:none"></span>
+      <span class="badge" id="roleBadge"></span>
+    </span>
+  </header>
+  <main id="pageContent" class="page-content"></main>
+  <nav id="bottomNav" class="bottom-nav"></nav>
+</div>
+
+<!-- Modal -->
+<div id="modalBg" class="modal-bg hide" onclick="if(event.target===this)App.closeModal()">
+  <div id="modalBox" class="modal"></div>
+</div>
+
+<!-- Toast -->
+<div id="toastBox"></div>
+
+<script>
+const App={
+state:{items:[],inbound:[],outbound:[],checks:[],staff:null,role:null,user:'',page:'dashboard',wh:'主食',reportMonth:'',reportType:'inbound',searchQ:'',filterWh:'',filterType:'',filterDateS:'',filterDateE:'',checkWh:'主食',checkMonth:'',staffMgmtTeam:'厨师组'},
+_cart:[],
+_mqttClient:null,
+_mqttConnected:false,
+_applyingRemote:false,
+_syncId:null,
+_mqttTopic:'canteen_wh_bbq_20260720/state',
+_eventSource:null,
+_pollTimer:null,
+_ntfyTopic:'canteen-wh-bbq-20260720',
+_processedSyncIds:null,
+_lastPollTime:0,
+
+STORAGE_KEY:'canteen_wh_v2',
+TEAMS:['厨师组','面点组','加工组','清洁组'],
+STAFF:{
+  '厨师组':['韩显文','黄福德','刘宗兵','林勇','朱益明'],
+  '面点组':['陈仕庭','莫运彬'],
+  '加工组':['韦月芬','陈先琴','吴院生','陈亚凤','李军秀','肖香花','苏小红','张瑞梅','高公生','张能林'],
+  '清洁组':['张伟','文小波','潘典辉','胡梦婷','陈丽贞','刘建']
+},
+
+DEFAULT_ITEMS:[
+// [id,name,category,spec,inboundUnit,outboundUnit,unitRatio,minStock,initStock]
+['ZS001','东北大米','主食','49.80斤/包','包','包',1,5,15],
+['ZS002','福掌柜非转基因一级大豆油','主食','10L/箱*2箱/件','件','箱',2,2,5],
+['ZS003','白沙糖','主食','50kg/包','包','包',1,1,2],
+['ZS004','大成生粉','主食','25kg/包','包','包',1,2,3],
+['ZS005','紫兰花面粉','主食','22.7kg/包','包','包',1,3,8],
+['ZS006','东莞米粉','主食','明兴牌','包','包',1,5,12],
+['ZS007','风车牌生粉','主食','50斤/包','包','包',1,2,2],
+['ZS008','一帆风胜大碗面','主食','3.6kg/件','件','件',1,3,8],
+['ZS009','五常惠粥大米','主食','5kg/包*5包/件','件','包',5,5,10],
+['ZS010','通垦粘米粉','主食','22.5kg/包','包','包',1,2,3],
+['ZS011','鲁花一级花生油','主食','5L*4瓶/箱','箱','瓶',4,5,8],
+['ZS012','韩国金拉面','主食','120g/包*12包/件','件','包',12,3,5],
+['ZS013','纽麦福全脂高钙纯牛奶','主食','200ml/瓶*30瓶/件','件','瓶',30,3,4],
+['ZS014','纽麦福脱脂高钙纯牛奶','主食','200ml/瓶*30瓶/件','件','瓶',30,3,4],
+['ZS015','香满园挂面','主食','50斤/包','包','包',1,3,6],
+['FS001','王守义十三香','副食','4.5g/盒*10盒/条','条','盒',10,10,20],
+['FS002','京遥胡辣汤','副食','五香牛肉味 280g/包','包','包',1,5,10],
+['FS003','胖子麻辣鱼','副食','3kg/桶*2桶/件','件','桶',2,2,3],
+['FS004','三五重庆火锅料','副食','300g/包*32包/件','件','包',32,1,2],
+['FS005','阳江双喜豆豉','副食','150g/盒*60盒/件','件','盒',60,1,2],
+['FS006','莲花高纯味精','副食','908g/包*10包/件','件','包',10,3,5],
+['FS007','太太乐鸡精','副食','454g/包*20包/件','件','包',20,3,5],
+['FS008','军杰剁椒王','副食','1.2kg/瓶*6瓶/件','件','瓶',6,1,2],
+['FS009','辣妹子辣椒酱','副食','920g/瓶*12瓶/件','件','瓶',12,1,2],
+['FS010','凤球唛沙司','副食','850g/罐*12罐/件','件','罐',12,3,5],
+['FS011','老青岛啤酒','副食','600ml/瓶*12瓶/件','件','瓶',12,10,24],
+['FS012','郫县恒丰源豆瓣酱','副食','4kg/桶*4桶/件','件','桶',4,2,3],
+['FS013','湘汝小米辣','副食','2kg/包*6包/件','件','包',6,3,5],
+['FS014','南亚保鲜膜','副食','45cm*400cm/13.2斤/卷*6卷/件','件','卷',6,5,8],
+['FS015','陶华碧老干妈','副食','280g/瓶*24瓶/件','件','瓶',24,5,8],
+['FS016','海天排骨酱','副食','2.2kg/桶*6桶/件','件','桶',6,1,2],
+['FS017','海天柱候酱','副食','2.2kg/桶*6桶/件','件','桶',6,1,2],
+['FS018','东古南乳','副食','320g/瓶*12瓶/件','件','瓶',12,1,2],
+['FS019','广合腐乳','副食','300g/瓶*12瓶/件','件','瓶',12,3,5],
+['FS020','乌江榨菜','副食','800g/包*10包/件','件','包',10,5,8],
+['FS021','海天特级金标生抽','副食','500ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS022','恒顺陈醋','副食','500ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS023','五丰黎红花椒油','副食','330ml/瓶*12瓶/件','件','瓶',12,1,2],
+['FS024','李锦记蒸鱼豉油','副食','410ml/瓶*12瓶/件','件','瓶',12,3,5],
+['FS025','李锦记纯香芝麻油','副食','410ml/瓶*12瓶/件','件','瓶',12,3,5],
+['FS026','海天老抽王','副食','1.9L/瓶*6瓶/件','件','瓶',6,3,5],
+['FS027','海天金字蚝油','副食','6kg/桶*2桶/件','件','桶',2,2,3],
+['FS028','海天金标生抽','副食','1.9L/瓶*6瓶/件','件','瓶',6,3,6],
+['FS029','圣塔花雕酒','副食','600ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS030','美味明记广东米酒','副食','610ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS031','深井食用碘盐','副食','2.5kg/包*10包/件','件','包',10,5,8],
+['FS032','致美斋9度糯米醋','副食','630ml/瓶*12瓶/件','件','瓶',12,3,5],
+].map(([id,name,cat,spec,inUnit,outUnit,ratio,min,init])=>({id,name,category:cat,spec,inboundUnit:outUnit,unit:outUnit,outboundUnit:outUnit,unitRatio:1,minStock:min,initStock:init,active:true})),
+
+SAMPLE_IN:[
+['IN20260715001','2026-07-15','主食','ZS006','东莞米粉',20,'2026-07-10','2026-10-10',15,300,'张三','正常采购'],
+['IN20260715002','2026-07-15','主食','ZS001','东北大米',15,'2026-07-01','2027-01-01',45,675,'张三','正常采购'],
+['IN20260716001','2026-07-16','副食','FS006','莲花高纯味精',5,'2026-06-01','2027-06-01',18,90,'张三','正常采购'],
+['IN20260716002','2026-07-16','副食','FS028','海天金标生抽',12,'2026-06-15','2027-06-15',12,144,'张三','正常采购'],
+['IN20260718001','2026-07-18','主食','ZS002','福掌柜非转基因一级大豆油',5,'2026-07-01','2027-01-01',120,600,'张三','正常采购'],
+].map(([id,date,wh,iid,nm,qty,pd,ed,price,amt,op,rm])=>({id,date,warehouse:wh,itemId:iid,itemName:nm,quantity:qty,productionDate:pd,expiryDate:ed,unitPrice:price,totalAmount:amt,operator:op,remark:rm})),
+
+SAMPLE_OUT:[
+['OUT20260716001','2026-07-16','主食','ZS006','东莞米粉',3,'韩显文','厨师组','张三','日常领用'],
+['OUT20260716002','2026-07-16','主食','ZS001','东北大米',2,'朱益明','厨师组','张三','日常领用'],
+['OUT20260717001','2026-07-17','副食','FS006','莲花高纯味精',1,'韩显文','厨师组','张三','日常领用'],
+['OUT20260717002','2026-07-17','副食','FS028','海天金标生抽',2,'陈仕庭','面点组','张三','日常领用'],
+['OUT20260718001','2026-07-18','主食','ZS002','福掌柜非转基因一级大豆油',1,'韦月芬','加工组','张三','日常领用'],
+].map(([id,date,wh,iid,nm,qty,rq,tm,op,rm])=>({id,date,warehouse:wh,itemId:iid,itemName:nm,quantity:qty,requester:rq,team:tm,operator:op,remark:rm})),
+
+init(){
+  this.load();
+  this.cloudInit();
+  document.getElementById('loginScreen').style.display='flex';
+  // 填充登录页班组下拉
+  const lt=document.getElementById('loginTeam');
+  if(lt)lt.innerHTML='<option value="">请选择班组</option>'+this.TEAMS.map(t=>`<option value="${t}">${t}</option>`).join('');
+  // URL参数专属入口：?role=kitchen / ?role=admin / ?role=manager
+  const params=new URLSearchParams(window.location.search);
+  const role=params.get('role');
+  if(role){
+    // 隐藏角色选择卡片 - 专属入口模式
+    document.querySelector('.role-cards').classList.add('hide');
+    document.querySelector('.scan-hint').style.display='none';
+    const h1=document.querySelector('.login-box h1');
+    const sub=document.querySelector('.login-box .sub');
+    if(role==='kitchen'){
+      h1.textContent='📤 领料出库';
+      sub.textContent='后厨领料员 · 选择班组姓名即可领料';
+      this.state.role='kitchen';
+      document.getElementById('nameInputBox').classList.remove('hide');
+      const savedName=localStorage.getItem('canteen_wh_kitchen_name');
+      if(savedName){
+        const team=this.findTeamForUser(savedName);
+        if(team){
+          document.getElementById('loginTeam').value=team;
+          this.updateLoginStaff(team,savedName);
+        }
+      }
+    }else if(role==='admin'){
+      h1.textContent='📥 入库登记';
+      sub.textContent='仓库管理员 · 入库登记管理';
+      document.getElementById('dedicatedEntryBox').classList.remove('hide');
+      document.getElementById('dedicatedHint').textContent='仓库管理员入口';
+      document.getElementById('dedicatedBtn').textContent='进入入库登记';
+    }else if(role==='manager'){
+      h1.textContent='📊 管理员入口';
+      sub.textContent='食堂管理员 · 看板/报表/查询';
+      document.getElementById('dedicatedEntryBox').classList.remove('hide');
+      document.getElementById('dedicatedHint').textContent='食堂管理员入口';
+      document.getElementById('dedicatedBtn').textContent='进入管理系统';
+    }
+  }
+},
+
+load(){
+  try{
+    const s=localStorage.getItem(this.STORAGE_KEY);
+    if(s){
+      const d=JSON.parse(s);
+      this.state.items=d.items||[];
+      this.state.inbound=d.inbound||[];
+      this.state.outbound=d.outbound||[];
+      this.state.checks=d.checks||[];
+      this.state.staff=d.staff||null;
+    }else{
+      this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
+      this.state.inbound=JSON.parse(JSON.stringify(this.SAMPLE_IN));
+      this.state.outbound=JSON.parse(JSON.stringify(this.SAMPLE_OUT));
+      this.save();
+    }
+  }catch(e){
+    this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
+    this.state.inbound=JSON.parse(JSON.stringify(this.SAMPLE_IN));
+    this.state.outbound=JSON.parse(JSON.stringify(this.SAMPLE_OUT));
+  }
+  this.state.reportMonth=this.curMonth();
+  this.state.checkMonth=this.curMonth();
+},
+
+save(){
+  localStorage.setItem(this.STORAGE_KEY,JSON.stringify({
+    items:this.state.items,
+    inbound:this.state.inbound,
+    outbound:this.state.outbound,
+    checks:this.state.checks,
+    staff:this.state.staff,
+  }));
+  this.cloudPublish();
+},
+
+// === Auth ===
+login(role){
+  if(role==='kitchen'){
+    this.state.role=role;
+    document.getElementById('nameInputBox').classList.remove('hide');
+    const savedName=localStorage.getItem('canteen_wh_kitchen_name');
+    if(savedName){
+      const team=this.findTeamForUser(savedName);
+      if(team){
+        document.getElementById('loginTeam').value=team;
+        this.updateLoginStaff(team,savedName);
+      }
+    }
+  }else{
+    this.state.role=role;
+    this.state.user=role==='admin'?'仓管员':'管理员';
+    this.enterApp();
+  }
+},
+
+updateLoginStaff(team,preSelect){
+  const sel=document.getElementById('loginStaff');
+  if(!sel)return;
+  if(!team){
+    sel.disabled=true;
+    sel.innerHTML='<option value="">请先选择班组</option>';
+    return;
+  }
+  sel.disabled=false;
+  const staff=this.getStaff(team);
+  const pre=preSelect||localStorage.getItem('canteen_wh_kitchen_name');
+  let opts='<option value="">请选择姓名</option>';
+  if(pre&&!staff.includes(pre))opts+=`<option value="${pre}" selected>${pre}（非在册）</option>`;
+  opts+=staff.map(n=>`<option value="${n}" ${n===pre?'selected':''}>${n}</option>`).join('');
+  sel.innerHTML=opts;
+},
+
+confirmLogin(){
+  const team=document.getElementById('loginTeam')?document.getElementById('loginTeam').value:'';
+  const name=document.getElementById('loginStaff')?document.getElementById('loginStaff').value:'';
+  if(!name){this.toast('请选择姓名','err');return;}
+  this.state.user=name;
+  localStorage.setItem('canteen_wh_kitchen_name',name);
+  this.state.page='outbound';
+  this.enterApp();
+},
+
+enterApp(){
+  document.getElementById('loginScreen').classList.add('hide');
+  document.getElementById('app').classList.remove('hide');
+  this.render();
+},
+
+enterDedicated(){
+  const params=new URLSearchParams(window.location.search);
+  const role=params.get('role');
+  if(role==='admin'||role==='manager'){
+    this.login(role);
+  }
+},
+
+logout(){
+  this._cart=[];
+  this.state.role=null;
+  this.state.user='';
+  this.state.page='dashboard';
+  document.getElementById('app').classList.add('hide');
+  document.getElementById('loginScreen').classList.remove('hide');
+  document.getElementById('nameInputBox').classList.add('hide');
+  document.getElementById('dedicatedEntryBox').classList.add('hide');
+  const lt=document.getElementById('loginTeam');
+  const ls=document.getElementById('loginStaff');
+  if(lt)lt.value='';
+  if(ls){ls.disabled=true;ls.innerHTML='<option value="">请先选择班组</option>';}
+  // 如果是专属入口模式，恢复对应的登录界面
+  const params=new URLSearchParams(window.location.search);
+  const role=params.get('role');
+  if(role==='kitchen'){
+    this.state.role='kitchen';
+    document.getElementById('nameInputBox').classList.remove('hide');
+    const savedName=localStorage.getItem('canteen_wh_kitchen_name');
+    if(savedName){
+      const team=this.findTeamForUser(savedName);
+      if(team){
+        document.getElementById('loginTeam').value=team;
+        this.updateLoginStaff(team,savedName);
+      }
+    }
+  }else if(role==='admin'||role==='manager'){
+    document.getElementById('dedicatedEntryBox').classList.remove('hide');
+  }
+},
+
+// === Staff ===
+getStaff(team){
+  if(this.state.staff&&this.state.staff[team])return this.state.staff[team];
+  return this.STAFF[team]||[];
+},
+getAllStaff(){
+  return this.TEAMS.flatMap(t=>this.getStaff(t).map(n=>({name:n,team:t})));
+},
+findTeamForUser(name){
+  for(const t of this.TEAMS){
+    if(this.getStaff(t).includes(name))return t;
+  }
+  return null;
+},
+updateStaffDropdown(team){
+  const sel=document.getElementById('obReq');
+  if(!sel)return;
+  const staff=this.getStaff(team);
+  const cur=this.state.role==='kitchen'?this.state.user:'';
+  let opts='';
+  if(!cur)opts+='<option value="">请选择领用人</option>';
+  if(cur&&!staff.includes(cur))opts+=`<option value="${cur}" selected>${cur}（非在册）</option>`;
+  opts+=staff.map(n=>`<option value="${n}" ${n===cur?'selected':''}>${n}</option>`).join('');
+  sel.innerHTML=opts;
+},
+addStaff(){
+  const team=this.state.staffMgmtTeam;
+  const name=document.getElementById('newStaffName').value.trim();
+  if(!name){this.toast('请输入姓名','err');return;}
+  if(!this.state.staff)this.state.staff=JSON.parse(JSON.stringify(this.STAFF));
+  if(!this.state.staff[team])this.state.staff[team]=[];
+  if(this.state.staff[team].includes(name)){this.toast('该人员已存在','err');return;}
+  this.state.staff[team].push(name);
+  this.save();
+  this.toast('添加成功','ok');
+  this.render();
+},
+removeStaff(team,name){
+  if(!this.state.staff)this.state.staff=JSON.parse(JSON.stringify(this.STAFF));
+  this.state.staff[team]=this.state.staff[team].filter(n=>n!==name);
+  this.save();
+  this.toast('已移除','ok');
+  this.render();
+},
+
+// === Nav ===
+nav(page){
+  this.state.page=page;
+  this.render();
+},
+
+getNavItems(){
+  const r=this.state.role;
+  if(r==='admin')return[
+    {id:'dashboard',ic:'📊',lb:'看板'},{id:'inbound',ic:'📥',lb:'入库'},
+    {id:'outbound',ic:'📤',lb:'出库'},{id:'reports',ic:'📈',lb:'报表'},{id:'more',ic:'⋯',lb:'更多'},
+  ];
+  if(r==='kitchen')return[
+    {id:'outbound',ic:'📤',lb:'领料'},{id:'records',ic:'📋',lb:'我的记录'},
+  ];
+  if(r==='manager')return[
+    {id:'dashboard',ic:'📊',lb:'看板'},{id:'reports',ic:'📈',lb:'报表'},{id:'records',ic:'🔍',lb:'查询'},{id:'more',ic:'⋯',lb:'更多'},
+  ];
+  return[];
+},
+
+getPageTitle(){
+  const m={dashboard:'库存看板',inbound:'入库登记',outbound:'领料出库',reports:'报表统计',more:'更多功能',check:'月度盘点',records:'单据查询',settings:'系统设置',qrcode:'二维码管理'};
+  return m[this.state.page]||'';
+},
+
+// === Render ===
+render(){
+  const roleNames={admin:'仓管员',kitchen:'领料员',manager:'管理员'};
+  document.getElementById('pageTitle').textContent=this.getPageTitle();
+  document.getElementById('roleBadge').textContent=roleNames[this.state.role]||'';
+  // Sync indicator
+  const sd=document.getElementById('syncDot');
+  if(sd){sd.style.display='inline-block';sd.style.background=this._mqttConnected?'#52c41a':'#999';sd.title=this._mqttConnected?'云同步已连接':'云同步离线';}
+  
+  // Nav
+  const navEl=document.getElementById('bottomNav');
+  const items=this.getNavItems();
+  navEl.innerHTML=items.map(i=>`
+    <div class="nav-item ${this.state.page===i.id?'active':''}" onclick="App.nav('${i.id}')">
+      <span class="ic">${i.ic}</span><span class="lb">${i.lb}</span>
+    </div>`).join('');
+  
+  // Page
+  const pc=document.getElementById('pageContent');
+  const pages={dashboard:'pageDashboard',inbound:'pageInbound',outbound:'pageOutbound',reports:'pageReports',more:'pageMore',check:'pageCheck',records:'pageRecords',settings:'pageSettings',qrcode:'pageQrcode'};
+  const fn=pages[this.state.page];
+  pc.innerHTML=this[fn]?this[fn]():'<div class="empty"><div class="ic">🚧</div><div class="t">页面建设中</div></div>';
+},
+
+// === Dashboard ===
+pageDashboard(){
+  const items=this.state.items.filter(i=>i.active);
+  const low=items.filter(i=>this.getStock(i.id)<=i.minStock);
+  const exp=this.getExpiringItems();
+  const wh=this.state.wh;
+  const whItems=items.filter(i=>i.category===wh);
+  const q=this.state.searchQ.toLowerCase();
+  const filtered=q?whItems.filter(i=>i.name.toLowerCase().includes(q)):whItems;
+  
+  return `
+    <div class="stats">
+      <div class="stat"><div class="v">${items.length}</div><div class="l">在管物料</div></div>
+      <div class="stat ${low.length?'danger':''}"><div class="v">${low.length}</div><div class="l">库存不足</div></div>
+      <div class="stat ${exp.length?'warning':''}"><div class="v">${exp.length}</div><div class="l">临期预警</div></div>
+    </div>
+    ${low.length?`<div class="alert alert-danger"><div class="ic">⚠️</div><div class="body"><div class="t">${low.length}项物料库存不足</div>${low.slice(0,3).map(i=>`<div class="item">${i.name}：剩余${this.getStock(i.id)}${i.unit}（最低${i.minStock}${i.unit}）</div>`).join('')}${low.length>3?`<div class="item">...等${low.length}项</div>`:''}</div></div>`:''}
+    ${exp.length?`<div class="alert alert-warning"><div class="ic">⏰</div><div class="body"><div class="t">${exp.length}项物料临期预警</div>${exp.slice(0,3).map(e=>`<div class="item">${e.itemName}：保质期至${e.expiryDate}</div>`).join('')}</div></div>`:''}
+    <div class="tabs">
+      <div class="tab ${wh==='主食'?'active':''}" onclick="App.state.wh='主食';App.render()">主食仓</div>
+      <div class="tab ${wh==='副食'?'active':''}" onclick="App.state.wh='副食';App.render()">副食仓</div>
+    </div>
+    <div class="search-bar"><span class="ic">🔍</span><input type="text" placeholder="搜索物料名称" value="${this.state.searchQ}" oninput="App.state.searchQ=this.value;App.render()"></div>
+    <div class="card" style="padding:0;overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>物料名称</th><th>规格</th><th>库存</th><th>状态</th></tr></thead>
+        <tbody>
+          ${filtered.length?filtered.map(i=>{
+            const s=this.getStock(i.id);
+            const low=s<=i.minStock;
+            return `<tr onclick="App.showItemDetail('${i.id}')">
+              <td>${i.name}</td><td style="color:var(--t3)">${i.spec}</td>
+              <td><b>${s}</b> ${i.unit}</td>
+              <td>${low?'<span class="tag tag-low">不足</span>':'<span class="tag tag-ok">正常</span>'}</td>
+            </tr>`;
+          }).join(''):'<tr><td colspan="4" style="text-align:center;color:var(--t3);padding:20px">暂无物料</td></tr>'}
+        </tbody>
+      </table>
+    </div>`;
+},
+
+// === Inbound ===
+pageInbound(){
+  if(this.state.role==='kitchen')return'<div class="empty"><div class="ic">🔒</div><div class="t">后厨人员无入库权限</div></div>';
+  if(this.state.role==='manager')return'<div class="empty"><div class="ic">🔒</div><div class="t">管理员无入库权限</div></div>';
+  
+  const today=this.curDate();
+  const recent=this.state.inbound.slice().reverse().slice(0,10);
+  
+  return `
+    <div class="card">
+      <div class="card-title">📝 入库登记</div>
+      <div class="form-group">
+        <label>仓库分类 <span class="req">*</span></label>
+        <select id="ibWh" onchange="App.updateItemDropdown('ibWh','ibItem','inbound')">
+          <option value="主食">主食仓</option><option value="副食">副食仓</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>物料名称 <span class="req">*</span></label>
+        <select id="ibItem" onchange="App.calcInboundTotal()"><option value="">请选择物料</option>${this.itemOptions('主食','inbound')}</select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>入库数量 <span class="req">*</span></label><input type="number" id="ibQty" min="1" placeholder="数量" oninput="App.calcInboundTotal()"></div>
+        <div class="form-group"><label>入库单位</label><input type="text" id="ibUnit" readonly placeholder="自动"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>生产日期</label><input type="date" id="ibPD"></div>
+        <div class="form-group"><label>保质期至</label><input type="date" id="ibED"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>单价（元）</label><input type="number" id="ibPrice" step="0.01" placeholder="0.00" oninput="App.calcInboundTotal()"></div>
+        <div class="form-group"><label>金额（元）</label><input type="text" id="ibTotal" readonly placeholder="自动计算"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>入库日期 <span class="req">*</span></label><input type="date" id="ibDate" value="${today}"></div>
+        <div class="form-group"><label>操作人</label><select id="ibOp"><option value="周敏敏" selected>周敏敏</option><option value="梅磊">梅磊</option></select></div>
+      </div>
+      <button class="btn btn-pri btn-block" onclick="App.submitInbound()">确认入库</button>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 Excel批量入库</div>
+      <p style="font-size:17px;color:var(--t3);line-height:1.8;margin-bottom:12px">
+        物料到货后，可提前在Excel填好到货清单，一键导入系统。<br>
+        <b>必填列</b>：物料名称、入库数量、生产日期、保质期(月)、入库日期<br>
+        <b>选填列</b>：单价(元)
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-out" style="flex:1" onclick="App.downloadInboundTemplate()">📥 下载导入模板</button>
+        <button class="btn btn-pri" style="flex:1" onclick="document.getElementById('inboundExcelFile').click()">📤 选择Excel导入</button>
+      </div>
+      <div class="form-group" style="margin-bottom:10px"><label>导入操作人</label><select id="importOp"><option value="周敏敏" selected>周敏敏</option><option value="梅磊">梅磊</option></select></div>
+      <input type="file" id="inboundExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="App.importInboundExcel(this.files[0])">
+      <div id="importPreview"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">📋 最近入库记录</div>
+      ${recent.length?recent.map(r=>`
+        <div class="record" onclick="App.printRecord('in', '${r.id}')">
+          <div class="hd"><span class="nm">${r.itemName}</span><span class="dt">${r.date}</span></div>
+          <div class="info">
+            <span>${r.warehouse}仓</span>
+            <span class="qty">+${r.quantity} ${this.getItemUnit(r.itemId,'out')}</span>
+            ${r.totalAmount?`<span>¥${r.totalAmount.toFixed(2)}</span>`:''}
+            <span>${r.operator}</span>
+          </div>
+        </div>`).join(''):'<div class="empty"><div class="t">暂无入库记录</div></div>'}
+    </div>`;
+},
+
+// === Outbound ===
+pageOutbound(){
+  const today=this.curDate();
+  const isAdmin=this.state.role==='admin';
+  const recent=this.state.outbound.slice().reverse().filter(r=>isAdmin||r.requester===this.state.user).slice(0,10);
+  const curUser=this.state.role==='kitchen'?this.state.user:'';
+  const userTeam=this.findTeamForUser(curUser)||this.TEAMS[0];
+  const staffOpts=this.getStaff(userTeam);
+  let reqOpts='';
+  if(!curUser)reqOpts+='<option value="">请选择领用人</option>';
+  if(curUser&&!staffOpts.includes(curUser))reqOpts+=`<option value="${curUser}" selected>${curUser}（非在册）</option>`;
+  reqOpts+=staffOpts.map(n=>`<option value="${n}" ${n===curUser?'selected':''}>${n}</option>`).join('');
+  const cart=this._cart||[];
+  
+  return `
+    <div class="card">
+      <div class="card-title">📤 领料出库</div>
+      <div class="form-row">
+        <div class="form-group"><label>领用班组 <span class="req">*</span></label><select id="obTeam" onchange="App.updateStaffDropdown(this.value)">${this.TEAMS.map(t=>`<option value="${t}" ${t===userTeam?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="form-group"><label>领用人 <span class="req">*</span></label><select id="obReq">${reqOpts}</select></div>
+      </div>
+      <div class="form-group"><label>领用日期 <span class="req">*</span></label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="date" id="obDate" value="${today}" style="flex:1" oninput="document.getElementById('obWeekday').textContent=App.getWeekday(this.value)">
+          <span id="obWeekday" style="font-size:16px;font-weight:600;color:var(--pri);white-space:nowrap;min-width:56px">${this.getWeekday(today)}</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">➕ 添加领用物品</div>
+      <div class="form-group">
+        <label>仓库</label>
+        <select id="obWh" onchange="App.updateItemDropdown('obWh','obItem');App.showOutboundStock()">
+          <option value="主食">主食仓</option><option value="副食">副食仓</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>物料名称</label>
+        <select id="obItem" onchange="App.showOutboundStock()"><option value="">请选择物料</option>${this.itemOptions('主食')}</select>
+      </div>
+      <div id="obStockInfo" style="display:none;margin:-8px 0 12px;padding:8px 12px;background:var(--pri-l);border-radius:8px;font-size:15px;color:var(--pri)"></div>
+      <div class="form-row form-row-3">
+        <div class="form-group"><label>出库数量</label><input type="number" id="obQty" min="1" value="1" placeholder="出库数量"></div>
+        <div class="form-group"><label>出库单位</label><input type="text" id="obUnit" readonly placeholder="自动"></div>
+        <div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-out" style="white-space:nowrap;height:46px;width:100%" onclick="App.addToCart()">➕ 添加</button></div>
+      </div>
+    </div>
+    ${cart.length?`
+    <div class="card">
+      <div class="card-title">📋 领用清单（${cart.length}项） <span class="more" style="color:var(--err)" onclick="App.clearCart()">清空</span></div>
+      ${cart.map((c,i)=>`
+        <div class="cart-item">
+          <div class="cart-info">
+            <span class="cart-wh">${c.warehouse==='主食'?'主食':'副食'}仓</span>
+            <span class="cart-name">${c.itemName}</span>
+            <span class="cart-qty">${c.quantity} ${c.unit}</span>
+          </div>
+          <button class="btn btn-sm btn-del" onclick="App.removeFromCart(${i})">删除</button>
+        </div>
+      `).join('')}
+      <button class="btn btn-pri btn-block" style="margin-top:12px;font-size:16px;padding:14px" onclick="App.submitCart()">✅ 确认出库（共${cart.length}项）</button>
+    </div>
+    `:''}
+    <div class="card">
+      <div class="card-title">📋 ${isAdmin?'最近领料记录':'我的领料记录'} <span class="more" onclick="App.exportOutboundDetail()">📄 导出Excel</span></div>
+      ${recent.length?recent.map(r=>`
+        <div class="record" onclick="App.printRecord('out','${r.id}')">
+          <div class="hd"><span class="nm">${r.itemName}</span><span class="dt">${r.date}</span></div>
+          <div class="info">
+            <span>${r.warehouse}仓</span>
+            <span class="qty">-${r.quantity} ${this.getItemUnit(r.itemId,'out')}</span>
+            <span>${r.requester}</span>
+            <span>${r.team}</span>
+          </div>
+        </div>`).join(''):'<div class="empty"><div class="t">暂无领料记录</div></div>'}
+    </div>`;
+},
+
+// === Check ===
+pageCheck(){
+  if(this.state.role!=='admin')return'<div class="empty"><div class="ic">🔒</div><div class="t">仅仓库管理员可执行盘点</div></div>';
+  const wh=this.state.checkWh;
+  const items=this.state.items.filter(i=>i.active&&i.category===wh);
+  const month=this.state.checkMonth;
+  const existing=this.state.checks.find(c=>c.month===month&&c.warehouse===wh);
+  
+  return `
+    <div class="card">
+      <div class="card-title">📋 月度盘点</div>
+      <div class="form-row">
+        <div class="form-group"><label>盘点月份</label><input type="month" id="ckMonth" value="${month}" onchange="App.state.checkMonth=this.value;App.render()"></div>
+        <div class="form-group"><label>盘点仓库</label><select id="ckWh" onchange="App.state.checkWh=this.value;App.render()"><option ${wh==='主食'?'selected':''}>主食仓</option><option ${wh==='副食'?'selected':''}>副食仓</option></select></div>
+      </div>
+      ${existing?`<div style="padding:8px 12px;background:var(--suc-l);border-radius:8px;font-size:15px;color:var(--suc);margin-bottom:12px">✅ 本月已盘点（${existing.date}）可修改后重新保存</div>`:''}
+    </div>
+    <div class="card" style="padding:0">
+      <div style="padding:12px 14px;border-bottom:1px solid var(--bd);font-size:15px;color:var(--t2);display:flex;gap:8px">
+        <span style="flex:1">物料名称</span><span style="width:60px;text-align:right">系统库存</span><span style="width:70px;text-align:center">实际盘点</span><span style="width:60px;text-align:center">差异</span>
+      </div>
+      ${items.map(i=>{
+        const sys=this.getStock(i.id);
+        const actual=existing?.items?.find(x=>x.itemId===i.id)?.actualStock??'';
+        const diff=actual!==''?actual-sys:'';
+        const ds=diff!==''?(diff>0?`+${diff}`:diff):'';
+        const dc=diff!==''?(diff>0?'var(--suc)':diff<0?'var(--err)':'var(--t3)'):'var(--t3)';
+        return `<div class="check-row">
+          <div class="nm">${i.name}<br><span style="font-size:14px;color:var(--t3)">${i.spec}</span></div>
+          <div class="sys">${sys} ${i.unit}</div>
+          <input type="number" id="ck_${i.id}" value="${actual}" placeholder="0" onchange="App.updateCheckDiff('${i.id}','${i.unit}')">
+          <div class="diff" id="df_${i.id}" style="color:${dc}">${ds}</div>
+        </div>`;
+      }).join('')}
+      <div style="padding:12px"><button class="btn btn-pri btn-block" onclick="App.submitCheck()">保存盘点结果</button></div>
+    </div>`;
+},
+
+// === Reports ===
+pageReports(){
+  const month=this.state.reportMonth;
+  const type=this.state.reportType;
+  return `
+    <div class="card">
+      <div class="form-row">
+        <div class="form-group"><label>报表月份</label><input type="month" value="${month}" onchange="App.state.reportMonth=this.value;App.render()"></div>
+        <div class="form-group" style="display:flex;align-items:flex-end"><button class="btn btn-out btn-block" onclick="App.exportAll('${month}')">📦 导出全部报表</button></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab ${type==='inbound'?'active':''}" onclick="App.state.reportType='inbound';App.render()">入库明细</div>
+      <div class="tab ${type==='outbound'?'active':''}" onclick="App.state.reportType='outbound';App.render()">领料消耗</div>
+      <div class="tab ${type==='inventory'?'active':''}" onclick="App.state.reportType='inventory';App.render()">库存台账</div>
+    </div>
+    ${this.renderReportTable(type,month)}
+    <button class="btn btn-pri btn-block" onclick="App.exportReport('${type}','${month}')">📄 导出当前报表 Excel</button>`;
+},
+
+renderReportTable(type,month){
+  if(type==='inbound'){
+    const recs=this.state.inbound.filter(r=>r.date.startsWith(month));
+    const total=recs.reduce((s,r)=>s+(r.totalAmount||0),0);
+    return `<div class="report-tbl"><table><thead><tr><th>日期</th><th>仓库</th><th>物料名称</th><th>入库数量</th><th>单位</th><th>单价</th><th>金额</th><th>操作人</th></tr></thead><tbody>
+    ${recs.length?recs.map(r=>`<tr><td>${r.date}</td><td>${r.warehouse}仓</td><td>${r.itemName}</td><td>${r.quantity}</td><td>${this.getItemUnit(r.itemId,'out')}</td><td>${r.unitPrice?'¥'+r.unitPrice.toFixed(2):'-'}</td><td>${r.totalAmount?'¥'+r.totalAmount.toFixed(2):'-'}</td><td>${r.operator}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">本月暂无入库记录</td></tr>'}
+    ${recs.length?`<tr class="total-row"><td colspan="6">合计</td><td>¥${total.toFixed(2)}</td><td></td></tr>`:''}
+    </tbody></table></div>`;
+  }
+  if(type==='outbound'){
+    const recs=this.state.outbound.filter(r=>r.date.startsWith(month));
+    recs.sort((a,b)=>a.date.localeCompare(b.date));
+    return `<div class="report-tbl"><table><thead><tr><th>领用日期</th><th>星期</th><th>领用班组</th><th>领用人</th><th>仓库</th><th>物料名称</th><th>出库数量</th><th>单位</th></tr></thead><tbody>
+    ${recs.length?recs.map(r=>`<tr><td>${r.date}</td><td>${this.getWeekday(r.date)}</td><td>${r.team||''}</td><td>${r.requester||''}</td><td>${r.warehouse}仓</td><td>${r.itemName}</td><td>${r.quantity}</td><td>${this.getItemUnit(r.itemId,'out')}</td></tr>`).join(''):'<tr><td colspan="8" style="text-align:center;color:var(--t3);padding:20px">本月暂无领料记录</td></tr>'}
+    </tbody></table></div>`;
+  }
+  if(type==='inventory'){
+    const items=this.state.items.filter(i=>i.active);
+    return `<div class="report-tbl"><table><thead><tr><th>编号</th><th>物料名称</th><th>仓库</th><th>规格</th><th>单位</th><th>期初</th><th>入库</th><th>出库</th><th>期末</th><th>最低</th><th>状态</th></tr></thead><tbody>
+    ${items.map(i=>{
+      const stk=this.getStock(i.id);
+      const ratio=i.unitRatio||1;
+      const mi=this.state.inbound.filter(r=>r.itemId===i.id&&r.date.startsWith(month)).reduce((s,r)=>s+r.quantity*ratio,0);
+      const mo=this.state.outbound.filter(r=>r.itemId===i.id&&r.date.startsWith(month)).reduce((s,r)=>s+r.quantity,0);
+      const init=stk-mi+mo;
+      const low=stk<=i.minStock;
+      return `<tr><td>${i.id}</td><td>${i.name}</td><td>${i.category}仓</td><td>${i.spec}</td><td>${i.unit}</td><td>${init}</td><td>${mi}</td><td>${mo}</td><td><b>${stk}</b></td><td>${i.minStock}</td><td>${low?'<span class="tag tag-low">不足</span>':'<span class="tag tag-ok">正常</span>'}</td></tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+  }
+  return'';
+},
+
+// === Records ===
+pageRecords(){
+  const isAdmin=this.state.role==='admin';
+  const isManager=this.state.role==='manager';
+  const all=[...this.state.inbound.map(r=>({...r,_type:'in'})),...this.state.outbound.map(r=>({...r,_type:'out'}))];
+  let filtered=all;
+  if(this.state.filterWh)filtered=filtered.filter(r=>r.warehouse===this.state.filterWh);
+  if(this.state.filterType)filtered=filtered.filter(r=>r._type===this.state.filterType);
+  if(this.state.filterDateS)filtered=filtered.filter(r=>r.date>=this.state.filterDateS);
+  if(this.state.filterDateE)filtered=filtered.filter(r=>r.date<=this.state.filterDateE);
+  if(this.state.searchQ){const q=this.state.searchQ.toLowerCase();filtered=filtered.filter(r=>r.itemName.toLowerCase().includes(q)||(r.requester||'').toLowerCase().includes(q))}
+  if(this.state.role==='kitchen')filtered=filtered.filter(r=>r._type==='out'&&r.requester===this.state.user);
+  filtered.sort((a,b)=>b.date.localeCompare(a.date));
+  
+  return `
+    <div class="card">
+      <div class="card-title">${this.state.role==='kitchen'?'我的领料记录':'单据查询'}</div>
+      ${isAdmin||isManager?`
+      <div class="filter-row">
+        <select onchange="App.state.filterType=this.value;App.render()"><option value="">全部类型</option><option value="in" ${this.state.filterType==='in'?'selected':''}>入库</option><option value="out" ${this.state.filterType==='out'?'selected':''}>出库</option></select>
+        <select onchange="App.state.filterWh=this.value;App.render()"><option value="">全部仓库</option><option value="主食" ${this.state.filterWh==='主食'?'selected':''}>主食仓</option><option value="副食" ${this.state.filterWh==='副食'?'selected':''}>副食仓</option></select>
+      </div>
+      <div class="filter-row">
+        <input type="date" value="${this.state.filterDateS}" onchange="App.state.filterDateS=this.value;App.render()">
+        <input type="date" value="${this.state.filterDateE}" onchange="App.state.filterDateE=this.value;App.render()">
+      </div>`:''}
+      <div class="search-bar"><span class="ic">🔍</span><input type="text" placeholder="搜索物料名称或领用人" value="${this.state.searchQ}" oninput="App.state.searchQ=this.value;App.render()"></div>
+    </div>
+    ${filtered.length?filtered.slice(0,50).map(r=>`
+      <div class="record" onclick="App.printRecord('${r._type}','${r.id}')">
+        <div class="hd">
+          <span class="nm">${r._type==='in'?'📥':'📤'} ${r.itemName}</span>
+          <span class="dt">${r.date}</span>
+        </div>
+        <div class="info">
+          <span>${r.warehouse}仓</span>
+          <span class="qty">${r._type==='in'?'+':'-'}${r.quantity} ${this.getItemUnit(r.itemId,'out')}</span>
+          ${r._type==='out'?`<span>${r.requester}</span><span>${r.team}</span>`:`<span>${r.operator}</span>${r.totalAmount?`<span>¥${r.totalAmount.toFixed(2)}</span>`:''}`}
+        </div>
+      </div>`).join(''):'<div class="empty"><div class="ic">📭</div><div class="t">暂无记录</div></div>'}
+    ${filtered.length>50?`<div style="text-align:center;color:var(--t3);font-size:14px;padding:12px">显示前50条，共${filtered.length}条</div>`:''}`;
+},
+
+// === More ===
+pageMore(){
+  const r=this.state.role;
+  let items='';
+  items+=`<div class="more-item" onclick="App.nav('qrcode')"><span class="ic">📱</span><div class="info"><div class="lb">二维码管理</div><div class="ds">生成领料/入库/管理员三个独立二维码，打印张贴仓库</div></div><span class="arrow">›</span></div>`;
+  items+=`<div class="more-item" onclick="App.showSyncHelp()"><span class="ic">🔄</span><div class="info"><div class="lb">数据同步状态</div><div class="ds">查看云端同步状态，手机电脑实时同步</div></div><span class="arrow">›</span></div>`;
+  if(r==='admin'){
+    items+=`<div class="more-item" onclick="App.nav('check')"><span class="ic">📋</span><div class="info"><div class="lb">月度盘点</div><div class="ds">录入实际盘点，生成盘盈盘亏明细</div></div><span class="arrow">›</span></div>`;
+  }
+  items+=`<div class="more-item" onclick="App.nav('records')"><span class="ic">🔍</span><div class="info"><div class="lb">单据查询</div><div class="ds">按日期、仓库、物料筛选出入库记录</div></div><span class="arrow">›</span></div>`;
+  if(r==='admin'){
+    items+=`<div class="more-item" onclick="App.nav('settings')"><span class="ic">⚙️</span><div class="info"><div class="lb">系统设置</div><div class="ds">物料管理、人员管理、数据备份</div></div><span class="arrow">›</span></div>`;
+  }
+  items+=`<div class="more-item" onclick="App.logout()"><span class="ic">🚪</span><div class="info"><div class="lb">退出登录</div><div class="ds">切换角色或退出系统</div></div><span class="arrow">›</span></div>`;
+  return `<div class="more-list">${items}</div>`;
+},
+
+// === Settings ===
+pageSettings(){
+  if(this.state.role!=='admin')return'<div class="empty"><div class="ic">🔒</div><div class="t">仅仓库管理员可访问设置</div></div>';
+  const items=this.state.items;
+  const mt=this.state.staffMgmtTeam;
+  const staffList=this.getStaff(mt);
+  return `
+    <div class="card">
+      <div class="card-title">📦 物料管理 <span class="more" onclick="App.showAddItem()">+ 新增物料</span></div>
+      <div class="tabs"><div class="tab ${this.state.wh==='主食'?'active':''}" onclick="App.state.wh='主食';App.render()">主食仓 (${items.filter(i=>i.category==='主食'&&i.active).length})</div><div class="tab ${this.state.wh==='副食'?'active':''}" onclick="App.state.wh='副食';App.render()">副食仓 (${items.filter(i=>i.category==='副食'&&i.active).length})</div></div>
+      ${items.filter(i=>i.category===this.state.wh).map(i=>{
+        const s=this.getStock(i.id);
+        return `<div class="item-row">
+          <div class="info"><div class="nm">${i.active?i.name:'<span style="color:var(--t3);text-decoration:line-through">'+i.name+'</span>'}</div><div class="sp">${i.spec} · 单位:${i.unit} · 最低${i.minStock}${i.unit}</div></div>
+          <div class="stk"><div class="v" style="${s<=i.minStock?'color:var(--err)':''}">${s}</div><div class="u">${i.unit}</div></div>
+          <button class="btn btn-sm btn-out" onclick="App.showEditItem('${i.id}')">编辑</button>
+          <button class="btn btn-sm ${i.active?'btn-del':'btn-out'}" onclick="App.toggleItem('${i.id}')">${i.active?'停用':'启用'}</button>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="card">
+      <div class="card-title">👥 领料人员管理 <span class="more" onclick="App.showAddStaff()">+ 添加人员</span></div>
+      <div class="tabs">${this.TEAMS.map(t=>`<div class="tab ${mt===t?'active':''}" onclick="App.state.staffMgmtTeam='${t}';App.render()">${t} (${this.getStaff(t).length})</div>`).join('')}</div>
+      ${staffList.length?staffList.map(n=>`
+        <div class="item-row">
+          <div class="info"><div class="nm">${n}</div><div class="sp">${mt}</div></div>
+          <button class="btn btn-sm btn-del" onclick="App.removeStaff('${mt}','${n}')">移除</button>
+        </div>`).join(''):'<div style="text-align:center;color:var(--t3);padding:16px">暂无人员</div>'}
+      <div id="addStaffBox" class="form-group hide" style="margin-top:12px">
+        <label>姓名</label>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="newStaffName" placeholder="输入姓名" onkeydown="if(event.key==='Enter')App.addStaff()">
+          <button class="btn btn-pri" onclick="App.addStaff()">添加</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">💾 数据管理</div>
+      <div class="alert alert-warning" style="margin-bottom:12px"><div class="ic">ℹ️</div><div class="body"><div class="t">云端实时同步已启用</div><div class="c">数据自动同步到云端，手机出库电脑实时可见。断网时数据保存在本地，联网后自动同步。仍可手动导出/导入做完整备份。</div></div></div>
+      <button class="btn btn-out btn-block" style="margin-bottom:10px" onclick="App.exportBackup()">📥 导出数据备份（JSON）</button>
+      <button class="btn btn-out btn-block" style="margin-bottom:10px" onclick="document.getElementById('importFile').click()">📤 导入数据备份</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="App.importBackup(this.files[0])">
+      <button class="btn btn-del btn-block" style="margin-bottom:10px" onclick="App.clearSampleData()">🗑️ 清除示例数据</button>
+      <button class="btn btn-del btn-block" onclick="App.resetAll()">⚠️ 重置全部数据</button>
+    </div>
+    <div class="card" style="text-align:center;color:var(--t3);font-size:14px">
+      <p>食堂仓库管理系统 v2.9</p>
+      <p>数据存储于本地浏览器，建议定期备份</p>
+    </div>`;
+},
+
+// === QR Code ===
+pageQrcode(){
+  const baseUrl=window.location.href.split('?')[0];
+  const kitchenUrl=baseUrl+'?role=kitchen';
+  const adminUrl=baseUrl+'?role=admin';
+  const managerUrl=baseUrl+'?role=manager';
+  const qrApi='https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=';
+  
+  return `
+    <div class="card no-print">
+      <div class="card-title">📱 二维码管理</div>
+      <p style="font-size:17px;color:var(--t3);line-height:2;margin-bottom:14px">
+        以下三个二维码各自独立，扫不同的码进入不同的专属功能页面，互不干扰。<br>
+        <b>领料出库二维码</b>：贴在仓库门口/领料窗口，后厨扫码→只显示领料入口→选班组→选姓名→直接领料<br>
+        <b>入库登记二维码</b>：贴在仓管办公区，仓管扫码→只显示入库入口→点进入→入库登记<br>
+        <b>管理员入口二维码</b>：贴在办公室，管理员扫码→只显示管理入口→点进入→查看看板和报表
+      </p>
+      <button class="btn btn-out btn-block" onclick="window.print()">🖨️ 打印全部二维码</button>
+    </div>
+    
+    <div id="printArea">
+      <div class="card qr-print-page" style="text-align:center">
+        <div class="qr-print-title">📤 领料出库</div>
+        <div class="qr-print-sub">后厨人员扫码领料 · 仅显示领料功能</div>
+        <img src="${qrApi}${encodeURIComponent(kitchenUrl)}" alt="领料二维码" style="width:260px;height:260px;margin:10px auto" />
+        <div style="font-size:12px;color:var(--t3);word-break:break-all;padding:0 20px">${kitchenUrl}</div>
+      </div>
+      
+      <div class="card qr-print-page" style="text-align:center">
+        <div class="qr-print-title">📥 入库登记</div>
+        <div class="qr-print-sub">仓管员扫码登记入库 · 仅显示入库功能</div>
+        <img src="${qrApi}${encodeURIComponent(adminUrl)}" alt="入库二维码" style="width:260px;height:260px;margin:10px auto" />
+        <div style="font-size:12px;color:var(--t3);word-break:break-all;padding:0 20px">${adminUrl}</div>
+      </div>
+      
+      <div class="card qr-print-page" style="text-align:center">
+        <div class="qr-print-title">📊 管理员入口</div>
+        <div class="qr-print-sub">食堂管理员 · 仅显示管理功能</div>
+        <img src="${qrApi}${encodeURIComponent(managerUrl)}" alt="管理员二维码" style="width:260px;height:260px;margin:10px auto" />
+        <div style="font-size:12px;color:var(--t3);word-break:break-all;padding:0 20px">${managerUrl}</div>
+      </div>
+    </div>
+    
+    <div class="card no-print" style="margin-top:12px">
+      <div class="card-title">📋 使用说明</div>
+      <div style="font-size:15px;color:var(--t2);line-height:2">
+        <p><b>1. 三个二维码各自独立：</b>扫领料码只能领料，扫入库码只能入库，扫管理员码只能看看板报表，互不干扰</p>
+        <p><b>2. 领料员操作流程：</b>微信扫领料二维码 → 选班组 → 选姓名 → 选仓库 → 选物料 → 填数量 → 提交</p>
+        <p><b>3. 仓管员操作流程：</b>微信扫入库二维码 → 点"进入入库登记" → 选仓库 → 选物料 → 填数量/日期/单价 → 提交</p>
+        <p><b>4. 管理员操作流程：</b>扫管理员二维码 → 点"进入管理系统" → 查看库存看板 → 查看月度报表 → 导出Excel</p>
+        <p><b>5. 领料员姓名记忆：</b>首次选好班组和姓名后，下次扫码自动预选，直接点确认即可</p>
+        <p><b>6. 打印建议：</b>点击上方"打印全部二维码"，每张A4纸打印一个二维码，建议过塑后张贴</p>
+      </div>
+    </div>`;
+},
+
+// === Actions ===
+submitInbound(){
+  const wh=document.getElementById('ibWh').value;
+  const itemId=document.getElementById('ibItem').value;
+  const item=this.getItem(itemId);
+  const qty=parseInt(document.getElementById('ibQty').value);
+  const date=document.getElementById('ibDate').value;
+  if(!itemId||!qty||!date){this.toast('请填写必填项','err');return;}
+  const price=parseFloat(document.getElementById('ibPrice').value)||0;
+  const rec={id:this.genId('IN'),date,warehouse:wh,itemId,itemName:item.name,quantity:qty,productionDate:document.getElementById('ibPD').value,expiryDate:document.getElementById('ibED').value,unitPrice:price,totalAmount:price*qty,operator:document.getElementById('ibOp').value||'仓管员',remark:''};
+  this.state.inbound.push(rec);
+  this.save();
+  this.toast('入库登记成功！','ok');
+  this.render();
+},
+
+// === Excel Import ===
+downloadInboundTemplate(){
+  if(typeof XLSX==='undefined'){this.toast('Excel库加载中，请稍后重试','err');return;}
+  const sample=[
+    {'物料名称':'东北大米','入库数量':10,'生产日期':'2026-07-15','保质期(月)':6,'单价(元)':0,'入库日期':'2026-07-20'},
+    {'物料名称':'福掌柜非转基因一级大豆油','入库数量':5,'生产日期':'2026-07-10','保质期(月)':12,'单价(元)':0,'入库日期':'2026-07-20'},
+    {'物料名称':'海天金标生抽','入库数量':3,'生产日期':'2026-07-01','保质期(月)':18,'单价(元)':0,'入库日期':'2026-07-20'},
+  ];
+  const ws=XLSX.utils.json_to_sheet(sample);
+  ws['!cols']=[{wch:22},{wch:10},{wch:14},{wch:12},{wch:10},{wch:14}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'入库导入模板');
+  // 第二个sheet：全部物料名称参考
+  const refItems=this.state.items.filter(i=>i.active).map(i=>({'物料名称':i.name,'仓库':i.category+'仓','规格':i.spec,'单位':i.unit}));
+  const ws2=XLSX.utils.json_to_sheet(refItems);
+  ws2['!cols']=[{wch:22},{wch:10},{wch:18},{wch:10}];
+  XLSX.utils.book_append_sheet(wb,ws2,'物料名称参考');
+  XLSX.writeFile(wb,'入库导入模板.xlsx');
+  this.toast('模板已下载，请按格式填写','ok');
+},
+
+importInboundExcel(file){
+  if(!file)return;
+  if(typeof XLSX==='undefined'){this.toast('Excel库加载中，请稍后重试','err');return;}
+  const reader=new FileReader();
+  reader.onload=(e)=>{
+    try{
+      const data=new Uint8Array(e.target.result);
+      const wb=XLSX.read(data,{type:'array'});
+      const ws=wb.Sheets[wb.SheetNames[0]];
+      const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+      if(!rows.length){this.toast('Excel文件为空','err');return;}
+      // 解析每行
+      const today=this.curDate();
+      const parsed=[];
+      const errors=[];
+      rows.forEach((row,idx)=>{
+        const rowNum=idx+2;
+        const name=String(row['物料名称']||row['名称']||'').trim();
+        const qty=parseInt(row['入库数量']||row['数量']||0);
+        if(!name){errors.push(`第${rowNum}行：物料名称为空`);return;}
+        if(!qty||qty<=0){errors.push(`第${rowNum}行：${name} 数量无效`);return;}
+        // 匹配物料
+        const item=this.state.items.find(i=>i.name===name&&i.active);
+        if(!item){
+          // 模糊匹配
+          const fuzzy=this.state.items.find(i=>i.active&&i.name.includes(name));
+          if(!fuzzy){errors.push(`第${rowNum}行：${name} 未在系统物料清单中找到`);return;}
+          parsed.push({rowNum,item:fuzzy,name:fuzzy.name,qty,rawName:name});
+        }else{
+          parsed.push({rowNum,item,name,qty,rawName:name});
+        }
+        const p=parsed[parsed.length-1];
+        p.productionDate=String(row['生产日期']||'').trim();
+        // 保质期(月) → 计算保质期至
+        const shelfMonths=parseInt(row['保质期(月)']||row['保质期']||0);
+        if(p.productionDate&&shelfMonths>0){
+          const pd=new Date(p.productionDate);
+          if(!isNaN(pd)){
+            pd.setMonth(pd.getMonth()+shelfMonths);
+            p.expiryDate=pd.toISOString().slice(0,10);
+          }
+        }else{
+          p.expiryDate=String(row['保质期至']||'').trim();
+        }
+        p.unitPrice=parseFloat(row['单价(元)']||row['单价']||0)||0;
+        p.totalAmount=p.unitPrice*p.qty;
+        p.date=String(row['入库日期']||'').trim()||today;
+      });
+      // 显示预览
+      const previewEl=document.getElementById('importPreview');
+      if(!parsed.length){
+        previewEl.innerHTML=`<div style="padding:12px;background:#fff3f3;border-radius:8px;color:var(--err);font-size:15px;line-height:1.8">
+          <b>❌ 无法导入，以下问题需修正：</b><br>${errors.map(e=>'• '+e).join('<br>')}
+        </div>`;
+        return;
+      }
+      this._pendingImport=parsed;
+      let html='<div style="padding:12px;background:var(--pri-l);border-radius:8px;margin-top:10px">';
+      html+=`<div style="font-weight:600;margin-bottom:8px">📋 导入预览（${parsed.length}条${errors.length?', '+errors.length+'条错误被跳过':''}）</div>`;
+      html+='<div style="overflow-x:auto"><table style="width:100%;font-size:14px;border-collapse:collapse">';
+      html+='<tr style="color:var(--t3)"><th style="text-align:left;padding:4px;border-bottom:1px solid #ddd">仓库</th><th style="text-align:left;padding:4px;border-bottom:1px solid #ddd">物料名称</th><th style="text-align:right;padding:4px;border-bottom:1px solid #ddd">入库数量</th><th style="text-align:left;padding:4px;border-bottom:1px solid #ddd">生产日期</th><th style="text-align:left;padding:4px;border-bottom:1px solid #ddd">保质期至</th><th style="text-align:right;padding:4px;border-bottom:1px solid #ddd">单价</th></tr>';
+      parsed.forEach(p=>{
+        html+=`<tr><td style="padding:4px;border-bottom:1px solid #f0f0f0">${p.item.category}仓</td><td style="padding:4px;border-bottom:1px solid #f0f0f0">${p.name}${p.rawName!==p.name?'<br><span style="color:var(--t3);font-size:14px">原文：'+p.rawName+'</span>':''}</td><td style="text-align:right;padding:4px;border-bottom:1px solid #f0f0f0">${p.qty} ${p.item.unit}</td><td style="padding:4px;border-bottom:1px solid #f0f0f0">${p.productionDate||'-'}</td><td style="padding:4px;border-bottom:1px solid #f0f0f0">${p.expiryDate||'-'}</td><td style="text-align:right;padding:4px;border-bottom:1px solid #f0f0f0">${p.unitPrice?'\u00a5'+p.unitPrice:'-'}</td></tr>`;
+      });
+      html+='</table></div>';
+      if(errors.length){
+        html+=`<div style="margin-top:8px;color:var(--err);font-size:14px;line-height:1.6"><b>跳过的行：</b><br>${errors.map(e=>'• '+e).join('<br>')}</div>`;
+      }
+      html+=`<div style="display:flex;gap:8px;margin-top:10px">`;
+      html+=`<button class="btn btn-pri" style="flex:1" onclick="App.confirmImportInbound()">✅ 确认导入${parsed.length}条</button>`;
+      html+=`<button class="btn btn-del" onclick="App.cancelImportInbound()">取消</button>`;
+      html+=`</div></div>`;
+      previewEl.innerHTML=html;
+    }catch(err){
+      this.toast('文件解析失败：'+err.message,'err');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  // 清空file input以便重复选择同一文件
+  document.getElementById('inboundExcelFile').value='';
+},
+
+confirmImportInbound(){
+  if(!this._pendingImport||!this._pendingImport.length)return;
+  const op=document.getElementById('importOp')?document.getElementById('importOp').value:'周敏敏';
+  let count=0;
+  this._pendingImport.forEach(p=>{
+    const rec={id:this.genId('IN'),date:p.date,warehouse:p.item.category,itemId:p.item.id,itemName:p.item.name,quantity:p.qty,productionDate:p.productionDate,expiryDate:p.expiryDate,unitPrice:p.unitPrice,totalAmount:p.totalAmount,operator:op,remark:'Excel导入'};
+    this.state.inbound.push(rec);
+    count++;
+  });
+  this.save();
+  this._pendingImport=null;
+  document.getElementById('importPreview').innerHTML='';
+  this.toast(`成功导入${count}条入库记录！`,'ok');
+  this.render();
+},
+
+cancelImportInbound(){
+  this._pendingImport=null;
+  document.getElementById('importPreview').innerHTML='';
+  this.toast('已取消导入','');
+},
+
+addToCart(){
+  const wh=document.getElementById('obWh').value;
+  const itemId=document.getElementById('obItem').value;
+  const item=this.getItem(itemId);
+  const qty=parseInt(document.getElementById('obQty').value);
+  if(!itemId){this.toast('请先选择物料','err');return;}
+  if(!qty||qty<=0){this.toast('请填写数量','err');return;}
+  const stk=this.getStock(itemId);
+  // 检查购物车里同一样东西的数量+本次数量是否超库存
+  const inCart=this._cart.filter(c=>c.itemId===itemId).reduce((s,c)=>s+c.quantity,0);
+  if(qty+inCart>stk){this.toast(`库存不足！当前剩${stk}${item.unit}，清单已有${inCart}`,'err');return;}
+  this._cart.push({warehouse:wh,itemId,itemName:item.name,quantity:qty,unit:item.unit});
+  this.toast(`已添加：${item.name} × ${qty}`,'ok');
+  // 重置选择器，方便继续添加
+  document.getElementById('obItem').value='';
+  document.getElementById('obQty').value='1';
+  document.getElementById('obUnit').value='';
+  document.getElementById('obStockInfo').style.display='none';
+  document.getElementById('obItem').focus();
+  this.render();
+},
+
+removeFromCart(idx){
+  this._cart.splice(idx,1);
+  this.render();
+},
+
+clearCart(){
+  if(!this._cart.length)return;
+  this._cart=[];
+  this.toast('已清空清单','');
+  this.render();
+},
+
+submitCart(){
+  if(!this._cart.length){this.toast('清单为空，请先添加物品','err');return;}
+  const date=document.getElementById('obDate').value;
+  const req=document.getElementById('obReq').value;
+  const team=document.getElementById('obTeam').value;
+  if(!date||!req){this.toast('请选择领用人和日期','err');return;}
+  // 再次检查库存（防止期间有变化）
+  for(const c of this._cart){
+    const stk=this.getStock(c.itemId);
+    const inCart=this._cart.filter(x=>x.itemId===c.itemId).reduce((s,x)=>s+x.quantity,0);
+    if(inCart>stk){this.toast(`${c.itemName}库存不足（剩${stk}${c.unit}）`,'err');return;}
+  }
+  // 批量创建出库记录
+  let count=0;
+  this._cart.forEach(c=>{
+    const rec={id:this.genId('OUT'),date,warehouse:c.warehouse,itemId:c.itemId,itemName:c.itemName,quantity:c.quantity,requester:req,team,operator:this.state.user,remark:''};
+    this.state.outbound.push(rec);
+    count++;
+  });
+  this.save();
+  this._cart=[];
+  this.toast(`领料出库成功！共${count}项`,'ok');
+  this.render();
+},
+
+submitOutbound(){
+  this.submitCart();
+},
+
+submitCheck(){
+  const wh=this.state.checkWh;
+  const month=this.state.checkMonth;
+  const items=this.state.items.filter(i=>i.active&&i.category===wh);
+  const checkItems=items.map(i=>{
+    const sys=this.getStock(i.id);
+    const actual=parseInt(document.getElementById('ck_'+i.id).value);
+    const a=isNaN(actual)?sys:actual;
+    return{itemId:i.id,itemName:i.name,systemStock:sys,actualStock:a,difference:a-sys,status:a>sys?'盘盈':a<sys?'盘亏':'正常'};
+  });
+  const rec={id:this.genId('CHK'),month,warehouse:wh,date:this.curDate(),items:checkItems,operator:this.state.user};
+  const idx=this.state.checks.findIndex(c=>c.month===month&&c.warehouse===wh);
+  if(idx>=0)this.state.checks[idx]=rec;else this.state.checks.push(rec);
+  this.save();
+  const loss=checkItems.filter(i=>i.difference<0).length;
+  const gain=checkItems.filter(i=>i.difference>0).length;
+  this.toast(`盘点完成！盘盈${gain}项，盘亏${loss}项`,'ok');
+  this.render();
+},
+
+updateCheckDiff(itemId,unit){
+  const sys=this.getStock(itemId);
+  const val=parseInt(document.getElementById('ck_'+itemId).value);
+  const dfEl=document.getElementById('df_'+itemId);
+  if(isNaN(val)){dfEl.textContent='';dfEl.style.color='var(--t3)';return;}
+  const diff=val-sys;
+  dfEl.textContent=diff>0?'+'+diff:diff;
+  dfEl.style.color=diff>0?'var(--suc)':diff<0?'var(--err)':'var(--t3)';
+},
+
+// === Item Management ===
+showAddStaff(){
+  const box=document.getElementById('addStaffBox');
+  if(box){
+    box.classList.toggle('hide');
+    if(!box.classList.contains('hide'))document.getElementById('newStaffName').focus();
+  }
+},
+
+showAddItem(){
+  this.showModal(`
+    <div class="modal-hd"><span class="t">新增物料</span><span class="x" onclick="App.closeModal()">×</span></div>
+    <div class="modal-bd">
+      <div class="form-group"><label>物料名称 *</label><input type="text" id="niName" placeholder="如：东北大米"></div>
+      <div class="form-row">
+        <div class="form-group"><label>仓库分类 *</label><select id="niCat"><option value="主食">主食仓</option><option value="副食">副食仓</option></select></div>
+        <div class="form-group"><label>规格</label><input type="text" id="niSpec" placeholder="如：25kg/包"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>单位 *</label><input type="text" id="niUnit" placeholder="如：包、箱、瓶"></div>
+        <div class="form-group"><label>最低库存</label><input type="number" id="niMin" value="3" min="0"></div>
+      </div>
+      <div class="form-group"><label>初始库存</label><input type="number" id="niInit" value="0" min="0"></div>
+      <button class="btn btn-pri btn-block" onclick="App.addItem()">确认新增</button>
+    </div>`);
+},
+
+addItem(){
+  const name=document.getElementById('niName').value.trim();
+  const cat=document.getElementById('niCat').value;
+  const unit=document.getElementById('niUnit').value.trim();
+  if(!name||!unit){this.toast('请填写名称和单位','err');return;}
+  const prefix=cat==='主食'?'ZS':'FS';
+  const nums=this.state.items.filter(i=>i.id.startsWith(prefix)).map(i=>parseInt(i.id.slice(3))).filter(n=>!isNaN(n));
+  const num=Math.max(0,...nums)+1;
+  const id=prefix+String(num).padStart(3,'0');
+  const item={id,name,category:cat,spec:document.getElementById('niSpec').value||'-',inboundUnit:unit,unit:unit,outboundUnit:unit,unitRatio:1,minStock:parseInt(document.getElementById('niMin').value)||0,initStock:parseInt(document.getElementById('niInit').value)||0,active:true};
+  this.state.items.push(item);
+  this.save();
+  this.closeModal();
+  this.toast('物料添加成功！','ok');
+  this.render();
+},
+
+showEditItem(id){
+  const item=this.getItem(id);
+  this.showModal(`
+    <div class="modal-hd"><span class="t">编辑物料</span><span class="x" onclick="App.closeModal()">×</span></div>
+    <div class="modal-bd">
+      <div class="form-group"><label>物料名称</label><input type="text" id="eiName" value="${item.name}"></div>
+      <div class="form-row">
+        <div class="form-group"><label>单位</label><input type="text" id="eiUnit" value="${item.unit}"></div>
+        <div class="form-group"><label>规格</label><input type="text" id="eiSpec" value="${item.spec}"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>最低库存</label><input type="number" id="eiMin" value="${item.minStock}"></div>
+        <div class="form-group"><label>初始库存</label><input type="number" id="eiInit" value="${item.initStock}"></div>
+      </div>
+      <button class="btn btn-pri btn-block" onclick="App.editItem('${id}')">保存修改</button>
+    </div>`);
+},
+
+editItem(id){
+  const item=this.getItem(id);
+  const unit=document.getElementById('eiUnit').value.trim();
+  item.name=document.getElementById('eiName').value.trim();
+  item.unit=unit;
+  item.inboundUnit=unit;
+  item.outboundUnit=unit;
+  item.unitRatio=1;
+  item.spec=document.getElementById('eiSpec').value||'-';
+  item.minStock=parseInt(document.getElementById('eiMin').value)||0;
+  item.initStock=parseInt(document.getElementById('eiInit').value)||0;
+  this.save();
+  this.closeModal();
+  this.toast('修改成功！','ok');
+  this.render();
+},
+
+toggleItem(id){
+  const item=this.getItem(id);
+  item.active=!item.active;
+  this.save();
+  this.toast(item.active?'已启用':'已停用','ok');
+  this.render();
+},
+
+// === Export ===
+exportReport(type,month){
+  if(typeof XLSX==='undefined'){this.toast('Excel库加载中，请稍后重试','err');return;}
+  let data=[],sheetName='',fileName='';
+  if(type==='inbound'){
+    data=this.state.inbound.filter(r=>r.date.startsWith(month)).map(r=>({'日期':r.date,'仓库':r.warehouse+'仓','物料名称':r.itemName,'入库数量':r.quantity,'单位':this.getItemUnit(r.itemId,'out'),'生产日期':r.productionDate||'','保质期至':r.expiryDate||'','单价':r.unitPrice||0,'金额':r.totalAmount||0,'操作人':r.operator,'备注':r.remark||''}));
+    sheetName='入库明细表';fileName=`入库明细表_${month}.xlsx`;
+  }else if(type==='outbound'){
+    const recs=this.state.outbound.filter(r=>r.date.startsWith(month));
+    recs.sort((a,b)=>a.date.localeCompare(b.date));
+    data=recs.map(r=>({'领用日期':r.date,'星期':this.getWeekday(r.date),'领用班组':r.team||'','领用人':r.requester||'','仓库':r.warehouse+'仓','物料名称':r.itemName,'出库数量':r.quantity,'单位':this.getItemUnit(r.itemId,'out')}));
+    sheetName='领料消耗明细表';fileName=`领料消耗明细表_${month}.xlsx`;
+  }else if(type==='inventory'){
+    data=this.state.items.filter(i=>i.active).map(i=>{const stk=this.getStock(i.id);const ratio=i.unitRatio||1;const mi=this.state.inbound.filter(r=>r.itemId===i.id&&r.date.startsWith(month)).reduce((s,r)=>s+r.quantity*ratio,0);const mo=this.state.outbound.filter(r=>r.itemId===i.id&&r.date.startsWith(month)).reduce((s,r)=>s+r.quantity,0);return{'物料编号':i.id,'物料名称':i.name,'仓库':i.category+'仓','规格':i.spec,'单位':i.unit,'期初库存':stk-mi+mo,'本月入库':mi,'本月出库':mo,'期末库存':stk,'最低库存':i.minStock,'状态':stk<=i.minStock?'库存不足':'正常'}});
+    sheetName='月末库存台账';fileName=`月末库存台账_${month}.xlsx`;
+  }
+  if(!data.length){this.toast('该月份暂无数据','err');return;}
+  const ws=XLSX.utils.json_to_sheet(data);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb,fileName);
+  this.toast('导出成功！','ok');
+},
+
+exportAll(month){
+  if(typeof XLSX==='undefined'){this.toast('Excel库加载中，请稍后重试','err');return;}
+  const wb=XLSX.utils.book_new();
+  // Inbound
+  const inData=this.state.inbound.filter(r=>r.date.startsWith(month)).map(r=>({'日期':r.date,'仓库':r.warehouse+'仓','物料名称':r.itemName,'入库数量':r.quantity,'单位':this.getItemUnit(r.itemId,'out'),'生产日期':r.productionDate||'','保质期至':r.expiryDate||'','单价':r.unitPrice||0,'金额':r.totalAmount||0,'操作人':r.operator,'备注':r.remark||''}));
+  if(inData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(inData),'入库明细');
+  // Outbound (detail)
+  const outRecs=this.state.outbound.filter(r=>r.date.startsWith(month));
+  outRecs.sort((a,b)=>a.date.localeCompare(b.date));
+  const outData=outRecs.map(r=>({'领用日期':r.date,'星期':this.getWeekday(r.date),'领用班组':r.team||'','领用人':r.requester||'','仓库':r.warehouse+'仓','物料名称':r.itemName,'出库数量':r.quantity,'单位':this.getItemUnit(r.itemId,'out')}));
+  if(outData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(outData),'领料消耗');
+  // Inventory
+  const invData=this.state.items.filter(i=>i.active).map(i=>{const stk=this.getStock(i.id);const ratio=i.unitRatio||1;const mi=this.state.inbound.filter(r=>r.itemId===i.id&&r.date.startsWith(month)).reduce((s,r)=>s+r.quantity*ratio,0);const mo=this.state.outbound.filter(r=>r.itemId===i.id&&r.date.startsWith(month)).reduce((s,r)=>s+r.quantity,0);return{'物料编号':i.id,'物料名称':i.name,'仓库':i.category+'仓','规格':i.spec,'单位':i.unit,'期初库存':stk-mi+mo,'本月入库':mi,'本月出库':mo,'期末库存':stk,'最低库存':i.minStock,'状态':stk<=i.minStock?'库存不足':'正常'}});
+  if(invData.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(invData),'库存台账');
+  
+  if(wb.SheetNames.length===0){this.toast('该月份暂无数据','err');return;}
+  XLSX.writeFile(wb,`食堂仓库月度报表_${month}.xlsx`);
+  this.toast('全部报表导出成功！','ok');
+},
+
+exportBackup(){
+  const data={version:1,exportDate:new Date().toISOString(),items:this.state.items,inbound:this.state.inbound,outbound:this.state.outbound,checks:this.state.checks};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;a.download=`食堂仓库数据备份_${this.curDate()}.json`;
+  a.click();URL.revokeObjectURL(url);
+  this.toast('数据备份已下载！','ok');
+},
+
+importBackup(file){
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const d=JSON.parse(e.target.result);
+      if(!d.items)throw new Error('格式错误');
+      this.state.items=d.items;this.state.inbound=d.inbound||[];this.state.outbound=d.outbound||[];this.state.checks=d.checks||[];
+      this.save();this.toast('数据恢复成功！','ok');this.render();
+    }catch(err){this.toast('文件格式错误','err')}
+  };
+  reader.readAsText(file);
+},
+
+clearSampleData(){
+  if(!confirm('确认清除示例入库/出库记录？\n物料清单将保留。'))return;
+  this.state.inbound=[];this.state.outbound=[];this.state.checks=[];
+  this.save();this.toast('示例数据已清除','ok');this.render();
+},
+
+resetAll(){
+  if(!confirm('⚠️ 确认重置全部数据？\n\n这将清除所有入库、出库、盘点记录，\n并恢复默认物料清单和初始库存。\n\n此操作不可撤销！'))return;
+  if(!confirm('再次确认：真的要重置全部数据吗？'))return;
+  this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
+  this.state.inbound=[];this.state.outbound=[];this.state.checks=[];
+  this.save();this.toast('数据已重置','ok');this.render();
+},
+
+// === Print ===
+printRecord(type,id){
+  const rec=type==='in'?this.state.inbound.find(r=>r.id===id):this.state.outbound.find(r=>r.id===id);
+  if(!rec)return;
+  const item=this.getItem(rec.itemId);
+  const isKitchen=this.state.role==='kitchen';
+  const html=`
+    <html><head><title>${type==='in'?'入库单':'领料出库单'}</title>
+    <style>body{font-family:"Microsoft YaHei",sans-serif;padding:40px;color:#333}
+    h1{text-align:center;font-size:20px;margin-bottom:6px}
+    .sub{text-align:center;color:#999;font-size:13px;margin-bottom:24px}
+    table{width:100%;border-collapse:collapse}
+    td{padding:10px 14px;border:1px solid #ddd;font-size:14px}
+    .label{background:#f5f5f5;font-weight:bold;width:120px;color:#666}
+    .sig{margin-top:40px;display:flex;justify-content:space-between;font-size:14px}
+    .sig div{border-bottom:1px solid #333;padding-bottom:4px;width:140px;text-align:center}
+    </style></head><body>
+    <h1>${type==='in'?'入库登记单':'领料出库单'}</h1>
+    <div class="sub">单据编号：${rec.id}</div>
+    <table>
+      <tr><td class="label">日期</td><td>${rec.date}</td><td class="label">仓库</td><td>${rec.warehouse}仓</td></tr>
+      <tr><td class="label">物料名称</td><td>${rec.itemName}</td><td class="label">规格</td><td>${item?.spec||'-'}</td></tr>
+      <tr><td class="label">${type==='in'?'入库数量':'出库数量'}</td><td>${rec.quantity} ${item?.unit||''}</td>${type==='in'?`<td class="label">金额</td><td>${isKitchen?'***':(rec.totalAmount?'¥'+rec.totalAmount.toFixed(2):'-')}</td>`:`<td class="label">班组</td><td>${rec.team}</td>`}</tr>
+      ${type==='in'?`<tr><td class="label">生产日期</td><td>${rec.productionDate||'-'}</td><td class="label">保质期至</td><td>${rec.expiryDate||'-'}</td></tr><tr><td class="label">单价</td><td>${isKitchen?'***':(rec.unitPrice?'¥'+rec.unitPrice.toFixed(2):'-')}</td><td class="label">操作人</td><td>${rec.operator}</td></tr>`:`<tr><td class="label">领用人</td><td>${rec.requester}</td><td class="label">操作人</td><td>${rec.operator}</td></tr>`}
+      <tr><td class="label">备注</td><td colspan="3">${rec.remark||'-'}</td></tr>
+    </table>
+    <div class="sig"><div>${type==='in'?'仓管员签字':'仓管员签字'}</div><div>${type==='in'?'验收人签字':'领用人签字'}</div></div>
+    <p style="text-align:center;color:#999;font-size:12px;margin-top:30px">${new Date().toLocaleString('zh-CN')}</p>
+    </body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html);w.document.close();
+  setTimeout(()=>w.print(),300);
+},
+
+// === Item Detail ===
+showItemDetail(id){
+  const item=this.getItem(id);
+  if(!item)return;
+  const stk=this.getStock(id);
+  const inRecs=this.state.inbound.filter(r=>r.itemId===id).slice(-5).reverse();
+  const outRecs=this.state.outbound.filter(r=>r.itemId===id).slice(-5).reverse();
+  const isKitchen=this.state.role==='kitchen';
+  this.showModal(`
+    <div class="modal-hd"><span class="t">${item.name}</span><span class="x" onclick="App.closeModal()">×</span></div>
+    <div class="modal-bd">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+        <div style="background:var(--pri-l);padding:12px;border-radius:8px;text-align:center"><div style="font-size:26px;font-weight:700;color:var(--pri)">${stk}</div><div style="font-size:14px;color:var(--t2)">当前库存（${item.unit}）</div></div>
+        <div style="background:${stk<=item.minStock?'var(--err-l)':'var(--suc-l)'};padding:12px;border-radius:8px;text-align:center"><div style="font-size:20px;font-weight:600;color:${stk<=item.minStock?'var(--err)':'var(--suc)'}">${stk<=item.minStock?'库存不足':'库存正常'}</div><div style="font-size:14px;color:var(--t2)">最低${item.minStock}${item.unit}</div></div>
+      </div>
+      <div style="font-size:15px;color:var(--t2);margin-bottom:12px">
+        <div>编号：${item.id} | 规格：${item.spec} | 仓库：${item.category}仓</div>
+        <div style="margin-top:4px">单位：${item.unit}</div>
+      </div>
+      <div class="card-title">📥 最近入库</div>
+      ${inRecs.length?inRecs.map(r=>`<div class="record" style="margin-bottom:6px" onclick="App.closeModal();App.printRecord('in','${r.id}')"><div class="hd"><span class="nm" style="font-size:15px">${r.date}</span><span class="qty">+${r.quantity} ${item.unit}</span></div>${!isKitchen&&r.totalAmount?`<div class="info"><span>¥${r.totalAmount.toFixed(2)}</span><span>${r.operator}</span></div>`:''}</div>`).join(''):'<div style="color:var(--t3);font-size:15px;padding:8px 0">暂无入库记录</div>'}
+      <div class="card-title" style="margin-top:12px">📤 最近出库</div>
+      ${outRecs.length?outRecs.map(r=>`<div class="record" style="margin-bottom:6px" onclick="App.closeModal();App.printRecord('out','${r.id}')"><div class="hd"><span class="nm" style="font-size:15px">${r.date}</span><span class="qty">-${r.quantity} ${item.unit}</span></div><div class="info"><span>${r.requester}</span><span>${r.team}</span></div></div>`).join(''):'<div style="color:var(--t3);font-size:15px;padding:8px 0">暂无出库记录</div>'}
+    </div>`);
+},
+
+// === Helpers ===
+getItem(id){return this.state.items.find(i=>i.id===id)},
+
+getItemByName(name){return this.state.items.find(i=>i.name===name)},
+
+getItemUnit(itemId,type){
+  const item=this.getItem(itemId);
+  if(!item)return '';
+  return item.unit;
+},
+
+getStock(itemId){
+  const item=this.getItem(itemId);
+  if(!item)return 0;
+  const ratio=item.unitRatio||1;
+  const init=item.initStock||0;
+  const inb=this.state.inbound.filter(r=>r.itemId===itemId).reduce((s,r)=>s+r.quantity*ratio,0);
+  const out=this.state.outbound.filter(r=>r.itemId===itemId).reduce((s,r)=>s+r.quantity,0);
+  return init+inb-out;
+},
+
+getExpiringItems(){
+  const now=new Date();
+  const limit=new Date(now.getTime()+30*24*60*60*1000);
+  return this.state.inbound.filter(r=>{
+    if(!r.expiryDate)return false;
+    const d=new Date(r.expiryDate);
+    return d>now&&d<limit;
+  }).map(r=>({...r,days:Math.ceil((new Date(r.expiryDate)-now)/(24*60*60*1000))}))
+  .sort((a,b)=>a.days-b.days);
+},
+
+itemOptions(wh,unitType){
+  return this.state.items.filter(i=>i.active&&i.category===wh).map(i=>`<option value="${i.id}" data-unit="${i.unit}">${i.name} (${i.spec})</option>`).join('');
+},
+
+updateItemDropdown(whSel,itemSel,unitType){
+  const wh=document.getElementById(whSel).value;
+  const sel=document.getElementById(itemSel);
+  sel.innerHTML='<option value="">请选择</option>'+this.itemOptions(wh,unitType);
+  const unitField=document.getElementById(itemSel.replace('Item','Unit'));
+  if(unitField)unitField.value='';
+},
+
+showOutboundStock(){
+  const itemId=document.getElementById('obItem').value;
+  const item=this.getItem(itemId);
+  const el=document.getElementById('obStockInfo');
+  const unitEl=document.getElementById('obUnit');
+  if(!itemId||!item){el.style.display='none';unitEl.value='';return;}
+  const stk=this.getStock(itemId);
+  unitEl.value=item.unit;
+  el.style.display='block';
+  el.innerHTML=`当前库存：<b>${stk}</b> ${item.unit}${stk<=item.minStock?'（库存不足！）':''}`;
+},
+
+calcInboundTotal(){
+  const qty=parseFloat(document.getElementById('ibQty').value)||0;
+  const price=parseFloat(document.getElementById('ibPrice').value)||0;
+  document.getElementById('ibTotal').value=(qty*price).toFixed(2);
+  const itemSel=document.getElementById('ibItem');
+  const opt=itemSel.options[itemSel.selectedIndex];
+  const unitEl=document.getElementById('ibUnit');
+  if(opt&&opt.dataset.unit)unitEl.value=opt.dataset.unit;
+},
+
+genId(prefix){
+  const d=new Date();
+  const ts=String(d.getFullYear())+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+  const rnd=String(Math.floor(Math.random()*900)+100);
+  return prefix+ts+rnd;
+},
+
+curDate(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')},
+
+curMonth(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')},
+
+getWeekday(dateStr){
+  if(!dateStr)return '';
+  const d=new Date(dateStr);
+  if(isNaN(d))return '';
+  const days=['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
+  return days[d.getDay()];
+},
+
+exportOutboundDetail(){
+  if(typeof XLSX==='undefined'){this.toast('Excel库加载中，请稍后重试','err');return;}
+  const month=this.curMonth();
+  let recs=this.state.outbound.filter(r=>r.date.startsWith(month));
+  if(this.state.role==='kitchen')recs=recs.filter(r=>r.requester===this.state.user);
+  if(!recs.length){this.toast('本月暂无领料记录','err');return;}
+  recs.sort((a,b)=>a.date.localeCompare(b.date));
+  const data=recs.map(r=>({
+    '领用日期':r.date,
+    '星期':this.getWeekday(r.date),
+    '领用班组':r.team||'',
+    '领用人':r.requester||'',
+    '仓库':r.warehouse+'仓',
+    '物料名称':r.itemName,
+    '出库数量':r.quantity,
+    '单位':this.getItemUnit(r.itemId,'out')
+  }));
+  const ws=XLSX.utils.json_to_sheet(data);
+  ws['!cols']=[{wch:12},{wch:8},{wch:10},{wch:10},{wch:8},{wch:22},{wch:8},{wch:8}];
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'领用明细');
+  XLSX.writeFile(wb,`领用明细_${month}.xlsx`);
+  this.toast('领用明细导出成功！','ok');
+},
+
+toast(msg,type){
+  const el=document.createElement('div');
+  el.className='toast';
+  el.textContent=msg;
+  if(type==='ok')el.style.background='rgba(82,196,26,.9)';
+  if(type==='err')el.style.background='rgba(255,77,79,.9)';
+  document.getElementById('toastBox').appendChild(el);
+  setTimeout(()=>{el.style.opacity='0';el.style.transition='opacity .3s';setTimeout(()=>el.remove(),300)},2000);
+},
+
+showSyncHelp(){
+  const mqttStatus=this._mqttConnected?'<span style="color:var(--suc);font-weight:600">● 已连接</span>':'<span style="color:var(--t3);font-weight:600">● 离线</span>';
+  const sseStatus=this._eventSource&&this._eventSource.readyState!==2?'<span style="color:var(--suc);font-weight:600">● 已连接</span>':'<span style="color:var(--t3);font-weight:600">● 离线</span>';
+  this.showModal(`
+    <div class="modal-hd"><span class="t">🔄 数据同步</span><span class="x" onclick="App.closeModal()">×</span></div>
+    <div class="modal-bd" style="font-size:17px;color:var(--t2);line-height:1.8">
+      <p><b>双通道云同步状态</b></p>
+      <p style="margin-top:6px">MQTT通道：${mqttStatus}</p>
+      <p>HTTP通道：${sseStatus}</p>
+      <p style="margin-top:10px">本系统采用双通道实时同步，手机扫码出库后电脑端自动收到更新，无需手动操作。</p>
+      <p style="margin-top:8px"><b>工作原理</b></p>
+      <p>每次入库/出库/盘点操作，数据同时通过MQTT和HTTP两个通道发送到云端。其他设备自动接收最新数据并刷新页面。</p>
+      <p style="margin-top:8px"><b>注意事项</b></p>
+      <p>• 需要网络连接，断网时数据保存在本地，联网后自动同步<br>• 标题栏绿点=已连接，灰点=离线<br>• 如需完整备份，可使用「导出数据备份」功能</p>
+    </div>`);
+},
+
+showModal(html){
+  document.getElementById('modalBox').innerHTML=html;
+  document.getElementById('modalBg').classList.remove('hide');
+},
+
+closeModal(){
+  document.getElementById('modalBg').classList.add('hide');
+},
+
+// === Cloud Sync (MQTT + HTTP dual-channel real-time) ===
+_syncTimer:null,
+
+cloudInit(){
+  if(!this._processedSyncIds)this._processedSyncIds=new Set();
+  // Channel 1: MQTT persistent connection (receiving + on-demand publish)
+  this._mqttInit();
+  // Channel 2: ntfy.sh HTTP (reliable publish in WeChat + SSE/polling receive)
+  this._ntfyInit();
+  // Page visibility: fetch latest + re-publish when returning to foreground
+  document.addEventListener('visibilitychange',()=>{
+    if(!document.hidden){
+      if(this.state.role&&this.state.page){
+        this._fetchLatest();
+        setTimeout(()=>this.cloudPublish(true),300);
+      }
+    }
+  });
+  // Periodic fetch latest (every 15s) — replaces old 20s re-publish
+  if(this._syncTimer)clearInterval(this._syncTimer);
+  this._syncTimer=setInterval(()=>{
+    if(this.state.role)this._fetchLatest();
+  },15000);
+},
+
+_mqttInit(){
+  if(typeof mqtt==='undefined'){console.log('MQTT lib not loaded, HTTP-only mode');return;}
+  try{
+    this._mqttClient=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{
+      clientId:'canteen_'+Math.random().toString(16).substr(2,8),
+      clean:true,
+      connectTimeout:8000,
+      reconnectPeriod:3000,
+      keepalive:20,
+    });
+    this._mqttClient.on('connect',()=>{
+      this._mqttConnected=true;
+      console.log('☁️ MQTT已连接');
+      this._mqttClient.subscribe(this._mqttTopic,{qos:1});
+      // Fetch latest state on connect
+      setTimeout(()=>this._fetchLatest(),500);
+      const sd=document.getElementById('syncDot');
+      if(sd){sd.style.background='#52c41a';sd.title='云同步已连接';}
+    });
+    this._mqttClient.on('message',(topic,message)=>{
+      try{
+        const remote=JSON.parse(message.toString());
+        if(remote._syncId&&remote._syncId!==this._syncId){
+          if(!this._processedSyncIds.has(remote._syncId)){
+            this._processedSyncIds.add(remote._syncId);
+            this.cloudMerge(remote);
+          }
+        }
+      }catch(e){}
+    });
+    this._mqttClient.on('offline',()=>{
+      this._mqttConnected=false;
+      const sd=document.getElementById('syncDot');
+      if(sd){sd.style.background='#999';sd.title='云同步离线';}
+    });
+    this._mqttClient.on('reconnect',()=>{console.log('☁️ MQTT重连中...');});
+    this._mqttClient.on('error',(e)=>{console.log('☁️ MQTT error:',e);});
+  }catch(e){console.log('MQTT init failed:',e);}
+},
+
+_ntfyInit(){
+  // SSE: real-time push via ntfy.sh (auto-reconnects natively in browsers)
+  try{
+    this._eventSource=new EventSource('https://ntfy.sh/'+this._ntfyTopic+'/sse?since=10m');
+    this._eventSource.onmessage=(event)=>{
+      try{
+        const data=JSON.parse(event.data);
+        if(data.event==='message'&&data.message){
+          const remote=JSON.parse(data.message);
+          if(remote._syncId&&remote._syncId!==this._syncId){
+            if(!this._processedSyncIds.has(remote._syncId)){
+              this._processedSyncIds.add(remote._syncId);
+              this.cloudMerge(remote);
+            }
+          }
+        }
+      }catch(e){}
+    };
+    this._eventSource.onerror=()=>{/* SSE auto-reconnects; if ntfy.sh blocked, polling+MQTT handle it */};
+  }catch(e){}
+  // Polling fallback: check every 5 seconds
+  if(this._pollTimer)clearInterval(this._pollTimer);
+  this._pollTimer=setInterval(()=>{
+    if(!this.state.role)return;
+    this._ntfyPoll();
+  },5000);
+},
+
+_ntfyPoll(){
+  const sinceSec=Math.floor((this._lastPollTime||(Date.now()-30000))/1000);
+  fetch('https://ntfy.sh/'+this._ntfyTopic+'/json?poll=1&since='+sinceSec)
+    .then(r=>r.json())
+    .then(msgs=>{
+      if(!Array.isArray(msgs))return;
+      msgs.forEach(m=>{
+        if(m.time)this._lastPollTime=Math.max(this._lastPollTime||0,m.time*1000);
+        if(m.event==='message'&&m.message){
+          try{
+            const remote=JSON.parse(m.message);
+            if(remote._syncId&&remote._syncId!==this._syncId){
+              if(!this._processedSyncIds.has(remote._syncId)){
+                this._processedSyncIds.add(remote._syncId);
+                this.cloudMerge(remote);
+              }
+            }
+          }catch(e){}
+        }
+      });
+      // Trim set to prevent unbounded growth
+      if(this._processedSyncIds&&this._processedSyncIds.size>200){
+        const arr=[...this._processedSyncIds];
+        this._processedSyncIds=new Set(arr.slice(-100));
+      }
+    }).catch(()=>{});
+},
+
+cloudPublish(force){
+  if(!force&&this._applyingRemote)return;
+  this._syncId=Date.now()+'_'+Math.random().toString(36).substr(2,6);
+  if(!this._processedSyncIds)this._processedSyncIds=new Set();
+  this._processedSyncIds.add(this._syncId);
+  const payloadStr=JSON.stringify({
+    items:this.state.items,
+    inbound:this.state.inbound,
+    outbound:this.state.outbound,
+    checks:this.state.checks,
+    staff:this.state.staff,
+    _syncId:this._syncId,
+    _syncTime:Date.now(),
+  });
+  // Channel 1: MQTT (with fresh-connection fallback for dead WebSocket)
+  this._mqttPublish(payloadStr);
+  // Channel 2: ntfy.sh HTTP POST (reliable in WeChat browser)
+  this._ntfyPublish(payloadStr);
+},
+
+_mqttPublish(payloadStr){
+  if(typeof mqtt==='undefined')return;
+  // If main connection alive, publish directly
+  if(this._mqttConnected&&this._mqttClient){
+    try{
+      this._mqttClient.publish(this._mqttTopic,payloadStr,{qos:1,retain:true});
+      console.log('☁️ MQTT发布成功(主连接)');
+      return;
+    }catch(e){console.log('MQTT main publish failed:',e);}
+  }
+  // ★ KEY FIX: Main connection dead → create FRESH one-time connection
+  // This bypasses WeChat browser's killed WebSocket by making a new connection right when needed
+  console.log('☁️ 主连接未就绪，创建临时连接发布...');
+  let done=false;
+  const tmp=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{
+    clientId:'canteen_pub_'+Math.random().toString(16).substr(2,8),
+    clean:true,
+    connectTimeout:5000,
+    keepalive:10,
+  });
+  tmp.on('connect',()=>{
+    tmp.publish(this._mqttTopic,payloadStr,{qos:1,retain:true},(err)=>{
+      done=true;
+      tmp.end();
+      if(err)console.log('☁️ 临时发布失败:',err);
+      else console.log('☁️ MQTT发布成功(临时连接)');
+    });
+  });
+  tmp.on('error',(e)=>{console.log('☁️ 临时连接错误:',e);});
+  // Failsafe: close after 6 seconds
+  setTimeout(()=>{if(!done){tmp.end();console.log('☁️ 临时连接超时');}},6000);
+},
+
+_ntfyPublish(payloadStr){
+  // HTTP POST to ntfy.sh — works reliably in WeChat browser (unlike WebSocket)
+  try{
+    fetch('https://ntfy.sh/'+this._ntfyTopic,{
+      method:'POST',
+      body:payloadStr,
+      headers:{'Content-Type':'text/plain'},
+    }).then(()=>{console.log('☁️ HTTP发布成功(ntfy.sh)');}).catch(()=>{});
+  }catch(e){}
+},
+
+_fetchLatest(){
+  if(typeof mqtt==='undefined')return;
+  // Create a fresh connection to fetch the retained message (latest state from broker)
+  let done=false;
+  const tmp=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{
+    clientId:'canteen_fetch_'+Math.random().toString(16).substr(2,8),
+    clean:true,
+    connectTimeout:5000,
+  });
+  tmp.on('connect',()=>{
+    tmp.subscribe(this._mqttTopic,{qos:1});
+    // Retained message arrives immediately; close after 2s if no message
+    setTimeout(()=>{if(!done){done=true;tmp.end();}},2000);
+  });
+  tmp.on('message',(topic,message)=>{
+    if(done)return;
+    done=true;
+    try{
+      const remote=JSON.parse(message.toString());
+      if(remote._syncId&&remote._syncId!==this._syncId){
+        if(!this._processedSyncIds.has(remote._syncId)){
+          this._processedSyncIds.add(remote._syncId);
+          this.cloudMerge(remote);
+        }
+      }
+    }catch(e){}
+    tmp.end();
+  });
+  tmp.on('error',()=>{if(!done){done=true;tmp.end();}});
+  setTimeout(()=>{if(!done){done=true;tmp.end();}},6000);
+},
+
+cloudMerge(remote){
+  if(!remote||!remote.items)return;
+  this._applyingRemote=true;
+  let changed=false;
+  // Merge inbound (union by id)
+  if(Array.isArray(remote.inbound)){
+    const ids=new Set(this.state.inbound.map(r=>r.id));
+    remote.inbound.forEach(r=>{if(r.id&&!ids.has(r.id)){this.state.inbound.push(r);changed=true;}});
+  }
+  // Merge outbound (union by id)
+  if(Array.isArray(remote.outbound)){
+    const ids=new Set(this.state.outbound.map(r=>r.id));
+    remote.outbound.forEach(r=>{if(r.id&&!ids.has(r.id)){this.state.outbound.push(r);changed=true;}});
+  }
+  // Merge checks (union by id)
+  if(Array.isArray(remote.checks)){
+    const ids=new Set(this.state.checks.map(r=>r.id));
+    remote.checks.forEach(r=>{if(r.id&&!ids.has(r.id)){this.state.checks.push(r);changed=true;}});
+  }
+  // Merge items (add new items from remote)
+  if(Array.isArray(remote.items)){
+    const ids=new Set(this.state.items.map(i=>i.id));
+    remote.items.forEach(i=>{if(i.id&&!ids.has(i.id)){this.state.items.push(i);changed=true;}});
+  }
+  // Merge staff
+  if(remote.staff&&JSON.stringify(remote.staff)!==JSON.stringify(this.state.staff)){
+    this.state.staff=remote.staff;changed=true;
+  }
+  if(changed){
+    localStorage.setItem(this.STORAGE_KEY,JSON.stringify({
+      items:this.state.items,inbound:this.state.inbound,outbound:this.state.outbound,
+      checks:this.state.checks,staff:this.state.staff,
+    }));
+    // Auto re-render on any logged-in page
+    if(this.state.role&&this.state.page){
+      this.render();
+      if(this.state.page!=='dashboard')this.toast('📊 数据已同步');
+    }
+    // Publish merged state so all devices get complete data
+    setTimeout(()=>{this._applyingRemote=false;this.cloudPublish(true);},300);
+  }else{
+    this._applyingRemote=false;
+  }
+},
+};
+
+App.init();
+</script>
+</body>
+</html>
