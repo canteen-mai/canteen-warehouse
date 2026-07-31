@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>食堂仓库管理系统</title>
-<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="./xlsx.full.min.js"></script>
+<script src="./goeasy.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{--pri:#1890ff;--pri-d:#096dd9;--pri-l:#e6f7ff;--suc:#52c41a;--suc-l:#f6ffed;--war:#faad14;--war-l:#fffbe6;--err:#ff4d4f;--err-l:#fff1f0;--bg:#f5f5f5;--card:#fff;--t1:#333;--t2:#666;--t3:#999;--bd:#e8e8e8;--r:10px;--sh:0 2px 8px rgba(0,0,0,.06)}
@@ -232,7 +232,6 @@ input,select,textarea,button{font-family:inherit;font-size:18px}
   .no-print{display:none!important}
 }
 </style>
-<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
 <script>
 (function(){
   try{
@@ -1818,7 +1817,7 @@ showSyncHelp(){
     <div class="modal-hd"><span class="t">🔄 数据同步</span><span class="x" onclick="App.closeModal()">×</span></div>
     <div class="modal-bd" style="font-size:17px;color:var(--t2);line-height:1.8">
       <p><b>双通道云同步状态</b></p>
-      <p style="margin-top:6px">MQTT通道：${mqttStatus}</p>
+      <p style="margin-top:6px">实时同步：${mqttStatus}</p>
       <p>HTTP通道：${sseStatus}</p>
       <p style="margin-top:10px">本系统采用双通道实时同步，手机扫码出库后电脑端自动收到更新，无需手动操作。</p>
       <p style="margin-top:8px"><b>工作原理</b></p>
@@ -1837,230 +1836,101 @@ closeModal(){
   document.getElementById('modalBg').classList.add('hide');
 },
 
-// === Cloud Sync (MQTT + HTTP dual-channel real-time) ===
+// === Cloud Sync (GoEasy 国内实时，替代原 MQTT+ntfy) ===
 _syncTimer:null,
+_goeasyAppkey:'BC-07b452879d584f34adf46196c209dcdb',   // ← 把这里换成你的 GoEasy Appkey（Common key）
+_syncChannel:'canteen_wh_v2_8f3a1c7e',
+_clientUid:null,
 
 cloudInit(){
   if(!this._processedSyncIds)this._processedSyncIds=new Set();
-  // Channel 1: MQTT persistent connection (receiving + on-demand publish)
-  this._mqttInit();
-  // Channel 2: ntfy.sh HTTP (reliable publish in WeChat + SSE/polling receive)
-  this._ntfyInit();
-  // Page visibility: fetch latest + re-publish when returning to foreground
+  this._goeasyInit();
+  // 页面回到前台：请求一次最新状态
   document.addEventListener('visibilitychange',()=>{
     if(!document.hidden){
       if(this.state.role&&this.state.page){
-        this._fetchLatest();
+        this._goeasyRequest();
         setTimeout(()=>this.cloudPublish(true),300);
       }
     }
   });
-  // Periodic fetch latest (every 15s) — replaces old 20s re-publish
-  if(this._syncTimer)clearInterval(this._syncTimer);
-  this._syncTimer=setInterval(()=>{
-    if(this.state.role)this._fetchLatest();
-  },15000);
 },
 
-_mqttInit(){
-  if(typeof mqtt==='undefined'){console.log('MQTT lib not loaded, HTTP-only mode');return;}
+_goeasyInit(){
+  if(typeof GoEasy==='undefined'){console.log('GoEasy lib not loaded, 仅本地模式');return;}
+  if(!this._goeasyAppkey||this._goeasyAppkey==='YOUR_GOEASY_APPKEY'){console.log('未配置 GoEasy Appkey，仅本地模式');return;}
   try{
-    this._mqttClient=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{
-      clientId:'canteen_'+Math.random().toString(16).substr(2,8),
-      clean:true,
-      connectTimeout:8000,
-      reconnectPeriod:3000,
-      keepalive:20,
+    this._goeasy=GoEasy.getInstance({
+      host:'hangzhou.goeasy.io',
+      appkey:this._goeasyAppkey,
+      modules:['pubsub'],
     });
-    this._mqttClient.on('connect',()=>{
-      this._mqttConnected=true;
-      console.log('☁️ MQTT已连接');
-      this._mqttClient.subscribe(this._mqttTopic,{qos:1});
-      // Fetch latest state on connect
-      setTimeout(()=>this._fetchLatest(),500);
-      const sd=document.getElementById('syncDot');
-      if(sd){sd.style.background='#52c41a';sd.title='云同步已连接';}
-    });
-    this._mqttClient.on('message',(topic,message)=>{
-      try{
-        const remote=JSON.parse(message.toString());
-        if(remote._syncId&&remote._syncId!==this._syncId){
-          if(!this._processedSyncIds.has(remote._syncId)){
-            this._processedSyncIds.add(remote._syncId);
-            this.cloudMerge(remote);
-          }
-        }
-      }catch(e){}
-    });
-    this._mqttClient.on('offline',()=>{
-      this._mqttConnected=false;
-      const sd=document.getElementById('syncDot');
-      if(sd){sd.style.background='#999';sd.title='云同步离线';}
-    });
-    this._mqttClient.on('reconnect',()=>{console.log('☁️ MQTT重连中...');});
-    this._mqttClient.on('error',(e)=>{console.log('☁️ MQTT error:',e);});
-  }catch(e){console.log('MQTT init failed:',e);}
-},
-
-_ntfyInit(){
-  // SSE: real-time push via ntfy.sh (auto-reconnects natively in browsers)
-  try{
-    this._eventSource=new EventSource('https://ntfy.sh/'+this._ntfyTopic+'/sse?since=12h');
-    this._eventSource.onmessage=(event)=>{
-      try{
-        const data=JSON.parse(event.data);
-        if(data.event==='message'&&data.message){
-          const remote=JSON.parse(data.message);
-          if(remote._syncId&&remote._syncId!==this._syncId){
-            if(!this._processedSyncIds.has(remote._syncId)){
-              this._processedSyncIds.add(remote._syncId);
-              this.cloudMerge(remote);
-            }
-          }
-        }
-      }catch(e){}
-    };
-    this._eventSource.onerror=()=>{/* SSE auto-reconnects; if ntfy.sh blocked, polling+MQTT handle it */};
-  }catch(e){}
-  // Polling fallback: check every 5 seconds
-  if(this._pollTimer)clearInterval(this._pollTimer);
-  this._pollTimer=setInterval(()=>{
-    if(!this.state.role)return;
-    this._ntfyPoll();
-  },5000);
-},
-
-_ntfyPoll(){
-  // 首次轮询回溯 12 小时，确保新打开的设备能拿到当前最新状态；之后增量轮询
-  const sinceSec=this._lastPollTime?Math.floor(this._lastPollTime/1000):Math.floor((Date.now()-12*3600*1000)/1000);
-  fetch('https://ntfy.sh/'+this._ntfyTopic+'/json?poll=1&since='+sinceSec)
-    .then(r=>r.json())
-    .then(msgs=>{
-      if(!Array.isArray(msgs))return;
-      msgs.forEach(m=>{
-        if(m.time)this._lastPollTime=Math.max(this._lastPollTime||0,m.time*1000);
-        if(m.event==='message'&&m.message){
-          try{
-            const remote=JSON.parse(m.message);
-            if(remote._syncId&&remote._syncId!==this._syncId){
-              if(!this._processedSyncIds.has(remote._syncId)){
-                this._processedSyncIds.add(remote._syncId);
-                this.cloudMerge(remote);
+    this._goeasy.connect({
+      onSuccess:()=>{
+        console.log('☁️ GoEasy 已连接');
+        this._mqttConnected=true;
+        const sd=document.getElementById('syncDot');
+        if(sd){sd.style.background='#52c41a';sd.title='云同步已连接';}
+        this._goeasy.pubsub.subscribe({
+          channel:this._syncChannel,
+          onMessage:(message)=>{
+            try{
+              const data=JSON.parse(message.content);
+              if(data.type==='request'){this._goeasyRespond();return;}
+              if(data.type==='state'){
+                const remote=data.payload;
+                if(remote&&remote._syncId&&remote._syncId!==this._syncId){
+                  if(!this._processedSyncIds.has(remote._syncId)){
+                    this._processedSyncIds.add(remote._syncId);
+                    this.cloudMerge(remote);
+                  }
+                }
               }
-            }
-          }catch(e){}
-        }
-      });
-      // Trim set to prevent unbounded growth
-      if(this._processedSyncIds&&this._processedSyncIds.size>200){
-        const arr=[...this._processedSyncIds];
-        this._processedSyncIds=new Set(arr.slice(-100));
-      }
-    }).catch(()=>{});
+            }catch(e){}
+          },
+          onSuccess:()=>{console.log('☁️ 订阅成功');},
+          onFailed:(err)=>{console.log('☁️ 订阅失败',err);},
+        });
+        // 连接/重连后：要一次最新，并广播自身状态
+        setTimeout(()=>{this._goeasyRequest();this._goeasyRespond();},400);
+      },
+      onFailed:(err)=>{console.log('☁️ GoEasy 连接失败',err);this._mqttConnected=false;},
+    });
+  }catch(e){console.log('GoEasy init failed:',e);}
+},
+
+_goeasyRequest(){
+  if(!this._goeasy||!this._mqttConnected)return;
+  this._goeasy.pubsub.publish({channel:this._syncChannel,message:JSON.stringify({type:'request'}),onSuccess:()=>{},onFailed:()=>{}});
+},
+
+_goeasyRespond(){
+  if(!this._goeasy||!this._mqttConnected)return;
+  if(!this.state.items||this.state.items.length===0)return;
+  if(!this._clientUid)this._clientUid=Math.random().toString(36).substr(2,8);
+  const sid=this._syncId||(this._dataSyncTime+'_'+this._clientUid);
+  const payload={items:this.state.items,inbound:this.state.inbound,outbound:this.state.outbound,checks:this.state.checks,staff:this.state.staff,_syncId:sid,_syncTime:this._dataSyncTime};
+  this._goeasy.pubsub.publish({channel:this._syncChannel,message:JSON.stringify({type:'state',payload:payload}),onSuccess:()=>{},onFailed:()=>{}});
 },
 
 cloudPublish(force){
   if(!force&&this._applyingRemote)return;
-  // ★ 兜底：物料清单为空时禁止发布空状态（避免污染云端），用默认物料兜底
-  if(!this.state.items||this.state.items.length===0){
-    this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
-  }
+  if(!this.state.items||this.state.items.length===0){this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));}
   const syncTime=Date.now();
   this._syncId=syncTime+'_'+Math.random().toString(36).substr(2,6);
   if(!this._processedSyncIds)this._processedSyncIds=new Set();
   this._processedSyncIds.add(this._syncId);
-  const payloadStr=JSON.stringify({
-    items:this.state.items,
-    inbound:this.state.inbound,
-    outbound:this.state.outbound,
-    checks:this.state.checks,
-    staff:this.state.staff,
-    _syncId:this._syncId,
-    _syncTime:syncTime,
-  });
-  // 记录本地持有状态的时间与指纹，避免被更旧的云端数据回灌
+  const payload={items:this.state.items,inbound:this.state.inbound,outbound:this.state.outbound,checks:this.state.checks,staff:this.state.staff,_syncId:this._syncId,_syncTime:syncTime};
   this._dataSyncTime=syncTime;
   this._dataSig=this._sig(this.state);
-  // Channel 1: MQTT (with fresh-connection fallback for dead WebSocket)
-  this._mqttPublish(payloadStr);
-  // Channel 2: ntfy.sh HTTP POST (reliable in WeChat browser)
-  this._ntfyPublish(payloadStr);
-},
-
-_mqttPublish(payloadStr){
-  if(typeof mqtt==='undefined')return;
-  // If main connection alive, publish directly
-  if(this._mqttConnected&&this._mqttClient){
-    try{
-      this._mqttClient.publish(this._mqttTopic,payloadStr,{qos:1,retain:true});
-      console.log('☁️ MQTT发布成功(主连接)');
-      return;
-    }catch(e){console.log('MQTT main publish failed:',e);}
+  if(this._goeasy&&this._mqttConnected){
+    this._goeasy.pubsub.publish({channel:this._syncChannel,message:JSON.stringify({type:'state',payload:payload}),onSuccess:()=>{console.log('☁️ GoEasy 发布成功');},onFailed:(err)=>{console.log('☁️ GoEasy 发布失败',err);}});
   }
-  // ★ KEY FIX: Main connection dead → create FRESH one-time connection
-  // This bypasses WeChat browser's killed WebSocket by making a new connection right when needed
-  console.log('☁️ 主连接未就绪，创建临时连接发布...');
-  let done=false;
-  const tmp=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{
-    clientId:'canteen_pub_'+Math.random().toString(16).substr(2,8),
-    clean:true,
-    connectTimeout:5000,
-    keepalive:10,
-  });
-  tmp.on('connect',()=>{
-    tmp.publish(this._mqttTopic,payloadStr,{qos:1,retain:true},(err)=>{
-      done=true;
-      tmp.end();
-      if(err)console.log('☁️ 临时发布失败:',err);
-      else console.log('☁️ MQTT发布成功(临时连接)');
-    });
-  });
-  tmp.on('error',(e)=>{console.log('☁️ 临时连接错误:',e);});
-  // Failsafe: close after 6 seconds
-  setTimeout(()=>{if(!done){tmp.end();console.log('☁️ 临时连接超时');}},6000);
-},
-
-_ntfyPublish(payloadStr){
-  // HTTP POST to ntfy.sh — works reliably in WeChat browser (unlike WebSocket)
-  try{
-    fetch('https://ntfy.sh/'+this._ntfyTopic,{
-      method:'POST',
-      body:payloadStr,
-      headers:{'Content-Type':'text/plain'},
-    }).then(()=>{console.log('☁️ HTTP发布成功(ntfy.sh)');}).catch(()=>{});
-  }catch(e){}
 },
 
 _fetchLatest(){
-  if(typeof mqtt==='undefined')return;
-  // Create a fresh connection to fetch the retained message (latest state from broker)
-  let done=false;
-  const tmp=mqtt.connect('wss://broker.emqx.io:8084/mqtt',{
-    clientId:'canteen_fetch_'+Math.random().toString(16).substr(2,8),
-    clean:true,
-    connectTimeout:5000,
-  });
-  tmp.on('connect',()=>{
-    tmp.subscribe(this._mqttTopic,{qos:1});
-    // Retained message arrives immediately; close after 2s if no message
-    setTimeout(()=>{if(!done){done=true;tmp.end();}},2000);
-  });
-  tmp.on('message',(topic,message)=>{
-    if(done)return;
-    done=true;
-    try{
-      const remote=JSON.parse(message.toString());
-      if(remote._syncId&&remote._syncId!==this._syncId){
-        if(!this._processedSyncIds.has(remote._syncId)){
-          this._processedSyncIds.add(remote._syncId);
-          this.cloudMerge(remote);
-        }
-      }
-    }catch(e){}
-    tmp.end();
-  });
-  tmp.on('error',()=>{if(!done){done=true;tmp.end();}});
-  setTimeout(()=>{if(!done){done=true;tmp.end();}},6000);
+  // GoEasy 无保留消息：改为请求在线节点广播最新
+  this._goeasyRequest();
 },
 
 _sig(state){
