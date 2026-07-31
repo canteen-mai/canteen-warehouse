@@ -335,6 +335,8 @@ _pollTimer:null,
 _ntfyTopic:'canteen-wh-bbq-20260720',
 _processedSyncIds:null,
 _lastPollTime:0,
+_dataSyncTime:0,
+_dataSig:'',
 
 STORAGE_KEY:'canteen_wh_v2',
 TEAMS:['厨师组','面点组','加工组','清洁组'],
@@ -467,6 +469,7 @@ load(){
       this.state.outbound=d.outbound||[];
       this.state.checks=d.checks||[];
       this.state.staff=d.staff||null;
+      this._dataSyncTime=d.syncTime||0;
     }else{
       this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
       this.state.inbound=JSON.parse(JSON.stringify(this.SAMPLE_IN));
@@ -478,6 +481,8 @@ load(){
     this.state.inbound=JSON.parse(JSON.stringify(this.SAMPLE_IN));
     this.state.outbound=JSON.parse(JSON.stringify(this.SAMPLE_OUT));
   }
+  // 本地持有状态的指纹，用于「以最新时间为准」的整份覆盖判定
+  this._dataSig=this._sig(this.state);
   this.state.reportMonth=this.curMonth();
   this.state.checkMonth=this.curMonth();
 },
@@ -489,6 +494,7 @@ save(){
     outbound:this.state.outbound,
     checks:this.state.checks,
     staff:this.state.staff,
+    syncTime:this._dataSyncTime||0,
   }));
   this.cloudPublish();
 },
@@ -1893,7 +1899,7 @@ _mqttInit(){
 _ntfyInit(){
   // SSE: real-time push via ntfy.sh (auto-reconnects natively in browsers)
   try{
-    this._eventSource=new EventSource('https://ntfy.sh/'+this._ntfyTopic+'/sse?since=10m');
+    this._eventSource=new EventSource('https://ntfy.sh/'+this._ntfyTopic+'/sse?since=12h');
     this._eventSource.onmessage=(event)=>{
       try{
         const data=JSON.parse(event.data);
@@ -1919,7 +1925,8 @@ _ntfyInit(){
 },
 
 _ntfyPoll(){
-  const sinceSec=Math.floor((this._lastPollTime||(Date.now()-30000))/1000);
+  // 首次轮询回溯 12 小时，确保新打开的设备能拿到当前最新状态；之后增量轮询
+  const sinceSec=this._lastPollTime?Math.floor(this._lastPollTime/1000):Math.floor((Date.now()-12*3600*1000)/1000);
   fetch('https://ntfy.sh/'+this._ntfyTopic+'/json?poll=1&since='+sinceSec)
     .then(r=>r.json())
     .then(msgs=>{
@@ -1948,7 +1955,8 @@ _ntfyPoll(){
 
 cloudPublish(force){
   if(!force&&this._applyingRemote)return;
-  this._syncId=Date.now()+'_'+Math.random().toString(36).substr(2,6);
+  const syncTime=Date.now();
+  this._syncId=syncTime+'_'+Math.random().toString(36).substr(2,6);
   if(!this._processedSyncIds)this._processedSyncIds=new Set();
   this._processedSyncIds.add(this._syncId);
   const payloadStr=JSON.stringify({
@@ -1958,8 +1966,11 @@ cloudPublish(force){
     checks:this.state.checks,
     staff:this.state.staff,
     _syncId:this._syncId,
-    _syncTime:Date.now(),
+    _syncTime:syncTime,
   });
+  // 记录本地持有状态的时间与指纹，避免被更旧的云端数据回灌
+  this._dataSyncTime=syncTime;
+  this._dataSig=this._sig(this.state);
   // Channel 1: MQTT (with fresh-connection fallback for dead WebSocket)
   this._mqttPublish(payloadStr);
   // Channel 2: ntfy.sh HTTP POST (reliable in WeChat browser)
@@ -2042,49 +2053,43 @@ _fetchLatest(){
   setTimeout(()=>{if(!done){done=true;tmp.end();}},6000);
 },
 
+_sig(state){
+  try{
+    return JSON.stringify({
+      items:state.items,inbound:state.inbound,outbound:state.outbound,
+      checks:state.checks,staff:state.staff,
+    });
+  }catch(e){return 'err_'+Math.random();}
+},
+
+// ★ 关键修复：改为「以最新同步时间为准、整份覆盖」，保证所有设备最终一致
+// 旧逻辑是「只加不删的合并」，清空/重新导入后旧数据会被叠加回来，导致库存错乱
 cloudMerge(remote){
-  if(!remote||!remote.items)return;
+  if(!remote||!remote._syncTime)return;
+  const remoteSig=this._sig(remote);
+  // 只接受比本地更新（或更新时间戳）的数据，防止旧数据回灌
+  if(remote._syncTime<=this._dataSyncTime)return;
+  // 内容完全相同（仅时间戳不同）→ 认领时间即可，不再重新广播，避免死循环
+  if(remoteSig===this._dataSig){this._dataSyncTime=remote._syncTime;return;}
+  // 内容不同且更新 → 整份覆盖
   this._applyingRemote=true;
-  let changed=false;
-  // Merge inbound (union by id)
-  if(Array.isArray(remote.inbound)){
-    const ids=new Set(this.state.inbound.map(r=>r.id));
-    remote.inbound.forEach(r=>{if(r.id&&!ids.has(r.id)){this.state.inbound.push(r);changed=true;}});
+  this.state.items=JSON.parse(JSON.stringify(remote.items||[]));
+  this.state.inbound=JSON.parse(JSON.stringify(remote.inbound||[]));
+  this.state.outbound=JSON.parse(JSON.stringify(remote.outbound||[]));
+  this.state.checks=JSON.parse(JSON.stringify(remote.checks||[]));
+  if(remote.staff!==undefined)this.state.staff=JSON.parse(JSON.stringify(remote.staff));
+  this._dataSyncTime=remote._syncTime;
+  this._dataSig=remoteSig;
+  localStorage.setItem(this.STORAGE_KEY,JSON.stringify({
+    items:this.state.items,inbound:this.state.inbound,outbound:this.state.outbound,
+    checks:this.state.checks,staff:this.state.staff,syncTime:this._dataSyncTime,
+  }));
+  if(this.state.role&&this.state.page){
+    this.render();
+    this.toast('📊 数据已同步（云端最新）');
   }
-  // Merge outbound (union by id)
-  if(Array.isArray(remote.outbound)){
-    const ids=new Set(this.state.outbound.map(r=>r.id));
-    remote.outbound.forEach(r=>{if(r.id&&!ids.has(r.id)){this.state.outbound.push(r);changed=true;}});
-  }
-  // Merge checks (union by id)
-  if(Array.isArray(remote.checks)){
-    const ids=new Set(this.state.checks.map(r=>r.id));
-    remote.checks.forEach(r=>{if(r.id&&!ids.has(r.id)){this.state.checks.push(r);changed=true;}});
-  }
-  // Merge items (add new items from remote)
-  if(Array.isArray(remote.items)){
-    const ids=new Set(this.state.items.map(i=>i.id));
-    remote.items.forEach(i=>{if(i.id&&!ids.has(i.id)){this.state.items.push(i);changed=true;}});
-  }
-  // Merge staff
-  if(remote.staff&&JSON.stringify(remote.staff)!==JSON.stringify(this.state.staff)){
-    this.state.staff=remote.staff;changed=true;
-  }
-  if(changed){
-    localStorage.setItem(this.STORAGE_KEY,JSON.stringify({
-      items:this.state.items,inbound:this.state.inbound,outbound:this.state.outbound,
-      checks:this.state.checks,staff:this.state.staff,
-    }));
-    // Auto re-render on any logged-in page
-    if(this.state.role&&this.state.page){
-      this.render();
-      if(this.state.page!=='dashboard')this.toast('📊 数据已同步');
-    }
-    // Publish merged state so all devices get complete data
-    setTimeout(()=>{this._applyingRemote=false;this.cloudPublish(true);},300);
-  }else{
-    this._applyingRemote=false;
-  }
+  // 把最新状态再广播一次，让落后的设备也能收敛；内容未变则不广播（防死循环）
+  setTimeout(()=>{this._applyingRemote=false;this.cloudPublish(true);},300);
 },
 };
 
