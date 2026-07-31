@@ -329,10 +329,10 @@ _mqttClient:null,
 _mqttConnected:false,
 _applyingRemote:false,
 _syncId:null,
-_mqttTopic:'canteen_wh_bbq_20260720/state',
+_mqttTopic:'canteen_wh_v2_8f3a1c7e/state',
 _eventSource:null,
 _pollTimer:null,
-_ntfyTopic:'canteen-wh-bbq-20260720',
+_ntfyTopic:'canteen-wh-v2-8f3a1c7e',
 _processedSyncIds:null,
 _lastPollTime:0,
 _dataSyncTime:0,
@@ -480,6 +480,12 @@ load(){
     this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
     this.state.inbound=JSON.parse(JSON.stringify(this.SAMPLE_IN));
     this.state.outbound=JSON.parse(JSON.stringify(this.SAMPLE_OUT));
+  }
+  // ★ 兜底：物料清单绝不能空（防止云端空消息/异常 localStorage 导致物料消失）
+  if(!this.state.items||this.state.items.length===0){
+    this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
+    if(!this.state.inbound||this.state.inbound.length===0)this.state.inbound=JSON.parse(JSON.stringify(this.SAMPLE_IN));
+    if(!this.state.outbound||this.state.outbound.length===0)this.state.outbound=JSON.parse(JSON.stringify(this.SAMPLE_OUT));
   }
   // 本地持有状态的指纹，用于「以最新时间为准」的整份覆盖判定
   this._dataSig=this._sig(this.state);
@@ -1955,6 +1961,10 @@ _ntfyPoll(){
 
 cloudPublish(force){
   if(!force&&this._applyingRemote)return;
+  // ★ 兜底：物料清单为空时禁止发布空状态（避免污染云端），用默认物料兜底
+  if(!this.state.items||this.state.items.length===0){
+    this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
+  }
   const syncTime=Date.now();
   this._syncId=syncTime+'_'+Math.random().toString(36).substr(2,6);
   if(!this._processedSyncIds)this._processedSyncIds=new Set();
@@ -2071,12 +2081,17 @@ cloudMerge(remote){
   if(remote._syncTime<=this._dataSyncTime)return;
   // 内容完全相同（仅时间戳不同）→ 认领时间即可，不再重新广播，避免死循环
   if(remoteSig===this._dataSig){this._dataSyncTime=remote._syncTime;return;}
-  // 内容不同且更新 → 整份覆盖
+  // 内容不同且更新 → 覆盖；但远程为空（异常/清零消息）时保留本地，杜绝「空消息清空物料/业务」
   this._applyingRemote=true;
-  this.state.items=JSON.parse(JSON.stringify(remote.items||[]));
-  this.state.inbound=JSON.parse(JSON.stringify(remote.inbound||[]));
-  this.state.outbound=JSON.parse(JSON.stringify(remote.outbound||[]));
-  this.state.checks=JSON.parse(JSON.stringify(remote.checks||[]));
+  const remoteItems=Array.isArray(remote.items)?remote.items:[];
+  const remoteIn=Array.isArray(remote.inbound)?remote.inbound:[];
+  const remoteOut=Array.isArray(remote.outbound)?remote.outbound:[];
+  const remoteChk=Array.isArray(remote.checks)?remote.checks:[];
+  if(remoteItems.length>0)this.state.items=JSON.parse(JSON.stringify(remoteItems));
+  else if(this.state.items.length===0)this.state.items=JSON.parse(JSON.stringify(this.DEFAULT_ITEMS));
+  this.state.inbound=remoteIn.length>0?JSON.parse(JSON.stringify(remoteIn)):this.state.inbound;
+  this.state.outbound=remoteOut.length>0?JSON.parse(JSON.stringify(remoteOut)):this.state.outbound;
+  this.state.checks=remoteChk.length>0?JSON.parse(JSON.stringify(remoteChk)):this.state.checks;
   if(remote.staff!==undefined)this.state.staff=JSON.parse(JSON.stringify(remote.staff));
   this._dataSyncTime=remote._syncTime;
   this._dataSig=remoteSig;
