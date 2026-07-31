@@ -232,7 +232,28 @@ input,select,textarea,button{font-family:inherit;font-size:18px}
   .no-print{display:none!important}
 }
 </style>
-</head>
+<script src="https://beacon.cdn.qq.com/sdk/4.5.9/beacon_web.min.js"></script>
+<script>
+(function(){
+  try{
+    var beacon=new BeaconAction({
+      appkey:'0WEB06U85YBSLJNL',
+      versionCode:'1.0.0',
+      channelID:'share',
+      delay:1000,
+      sessionDuration:30*60*1000,
+      isOversea:false,
+      needReportRqdEvent:false
+    });
+    beacon.onDirectUserAction('preview_page_view',{
+      'url':location.href,
+      'referrer':document.referrer,
+      'title':document.title,
+      'sandbox_id':'cab51fe5c1d1459a9308571ec91b29b2'
+    });
+  }catch(e){}
+})();
+</script></head>
 <body>
 
 <!-- Login -->
@@ -326,58 +347,70 @@ STAFF:{
 
 DEFAULT_ITEMS:[
 // [id,name,category,spec,inboundUnit,outboundUnit,unitRatio,minStock,initStock]
-['ZS001','东北大米','主食','49.80斤/包','包','包',1,5,0],
-['ZS002','福掌柜非转基因一级大豆油','主食','10L/箱*2箱/件','件','箱',2,2,0],
-['ZS003','白沙糖','主食','50kg/包','包','包',1,1,0],
-['ZS004','大成生粉','主食','25kg/包','包','包',1,2,0],
-['ZS005','紫兰花面粉','主食','22.7kg/包','包','包',1,3,0],
-['ZS006','东莞米粉','主食','明兴牌','包','包',1,5,0],
-['ZS007','风车牌生粉','主食','50斤/包','包','包',1,2,0],
-['ZS008','一帆风胜大碗面','主食','3.6kg/件','件','件',1,3,0],
-['ZS009','五常惠粥大米','主食','5kg/包*5包/件','件','包',5,5,0],
-['ZS010','通垦粘米粉','主食','22.5kg/包','包','包',1,2,0],
-['ZS011','鲁花一级花生油','主食','5L*4瓶/箱','箱','瓶',4,5,0],
-['ZS012','韩国金拉面','主食','120g/包*12包/件','件','箱',12,3,0],
-['ZS013','纽麦福全脂高钙纯牛奶','主食','200ml/瓶*30瓶/件','件','件',30,3,0],
-['ZS014','纽麦福脱脂高钙纯牛奶','主食','200ml/瓶*30瓶/件','件','件',30,3,0],
-['ZS015','香满园挂面','主食','50斤/包','包','包',1,3,0],
-['FS001','王守义十三香','副食','4.5g/盒*10盒/条','条','盒',10,10,0],
-['FS002','京遥胡辣汤','副食','五香牛肉味 280g/包','包','包',1,5,0],
-['FS003','胖子麻辣鱼','副食','3kg/桶*2桶/件','件','桶',2,2,0],
-['FS004','三五重庆火锅料','副食','300g/包*32包/件','件','包',32,1,0],
-['FS005','阳江双喜豆豉','副食','150g/盒*60盒/件','件','盒',60,1,0],
-['FS006','莲花高纯味精','副食','908g/包*10包/件','件','包',10,3,0],
-['FS007','太太乐鸡精','副食','454g/包*20包/件','件','包',20,3,0],
-['FS008','军杰剁椒王','副食','1.2kg/瓶*6瓶/件','件','瓶',6,1,0],
-['FS009','辣妹子辣椒酱','副食','920g/瓶*12瓶/件','件','瓶',12,1,0],
-['FS010','凤球唛沙司','副食','850g/罐*12罐/件','件','罐',12,3,0],
-['FS011','老青岛啤酒','副食','600ml/瓶*12瓶/件','件','瓶',12,10,0],
-['FS012','郫县恒丰源豆瓣酱','副食','4kg/桶*4桶/件','件','桶',4,2,0],
-['FS013','湘汝小米辣','副食','2kg/包*6包/件','件','包',6,3,0],
-['FS014','南亚保鲜膜','副食','45cm*400cm/13.2斤/卷*6卷/件','件','卷',6,5,0],
-['FS015','陶华碧老干妈','副食','280g/瓶*24瓶/件','件','瓶',24,5,0],
-['FS016','海天排骨酱','副食','2.2kg/桶*6桶/件','件','桶',6,1,0],
-['FS017','海天柱候酱','副食','2.2kg/桶*6桶/件','件','桶',6,1,0],
-['FS018','东古南乳','副食','320g/瓶*12瓶/件','件','瓶',12,1,0],
-['FS019','广合腐乳','副食','300g/瓶*12瓶/件','件','瓶',12,3,0],
-['FS020','乌江榨菜','副食','800g/包*10包/件','件','包',10,5,0],
-['FS021','海天特级金标生抽','副食','500ml/瓶*12瓶/件','件','瓶',12,5,0],
-['FS022','恒顺陈醋','副食','500ml/瓶*12瓶/件','件','瓶',12,5,0],
-['FS023','五丰黎红花椒油','副食','330ml/瓶*12瓶/件','件','瓶',12,1,0],
-['FS024','李锦记蒸鱼豉油','副食','410ml/瓶*12瓶/件','件','瓶',12,3,0],
-['FS025','李锦记纯香芝麻油','副食','410ml/瓶*12瓶/件','件','瓶',12,3,0],
-['FS026','海天老抽王','副食','1.9L/瓶*6瓶/件','件','瓶',6,3,0],
-['FS027','海天金字蚝油','副食','6kg/桶*2桶/件','件','桶',2,2,0],
-['FS028','海天金标生抽','副食','1.9L/瓶*6瓶/件','件','瓶',6,3,0],
-['FS029','圣塔花雕酒','副食','600ml/瓶*12瓶/件','件','瓶',12,5,0],
-['FS030','美味明记广东米酒','副食','610ml/瓶*12瓶/件','件','瓶',12,5,0],
-['FS031','深井食用碘盐','副食','2.5kg/包*10包/件','件','包',10,5,0],
-['FS032','致美斋9度糯米醋','副食','630ml/瓶*12瓶/件','件','瓶',12,3,0],
+['ZS001','东北大米','主食','49.80斤/包','包','包',1,5,15],
+['ZS002','福掌柜非转基因一级大豆油','主食','10L/箱*2箱/件','件','箱',2,2,5],
+['ZS003','白沙糖','主食','50kg/包','包','包',1,1,2],
+['ZS004','大成生粉','主食','25kg/包','包','包',1,2,3],
+['ZS005','紫兰花面粉','主食','22.7kg/包','包','包',1,3,8],
+['ZS006','东莞米粉','主食','明兴牌','包','包',1,5,12],
+['ZS007','风车牌生粉','主食','50斤/包','包','包',1,2,2],
+['ZS008','一帆风胜大碗面','主食','3.6kg/件','件','件',1,3,8],
+['ZS009','五常惠粥大米','主食','5kg/包*5包/件','件','包',5,5,10],
+['ZS010','通垦粘米粉','主食','22.5kg/包','包','包',1,2,3],
+['ZS011','鲁花一级花生油','主食','5L*4瓶/箱','箱','瓶',4,5,8],
+['ZS012','韩国金拉面','主食','120g/包*12包/件','件','箱',12,3,5],
+['ZS013','纽麦福全脂高钙纯牛奶','主食','200ml/瓶*30瓶/件','件','件',30,3,4],
+['ZS014','纽麦福脱脂高钙纯牛奶','主食','200ml/瓶*30瓶/件','件','件',30,3,4],
+['ZS015','香满园挂面','主食','50斤/包','包','包',1,3,6],
+['FS001','王守义十三香','副食','4.5g/盒*10盒/条','条','盒',10,10,20],
+['FS002','京遥胡辣汤','副食','五香牛肉味 280g/包','包','包',1,5,10],
+['FS003','胖子麻辣鱼','副食','3kg/桶*2桶/件','件','桶',2,2,3],
+['FS004','三五重庆火锅料','副食','300g/包*32包/件','件','包',32,1,2],
+['FS005','阳江双喜豆豉','副食','150g/盒*60盒/件','件','盒',60,1,2],
+['FS006','莲花高纯味精','副食','908g/包*10包/件','件','包',10,3,5],
+['FS007','太太乐鸡精','副食','454g/包*20包/件','件','包',20,3,5],
+['FS008','军杰剁椒王','副食','1.2kg/瓶*6瓶/件','件','瓶',6,1,2],
+['FS009','辣妹子辣椒酱','副食','920g/瓶*12瓶/件','件','瓶',12,1,2],
+['FS010','凤球唛沙司','副食','850g/罐*12罐/件','件','罐',12,3,5],
+['FS011','老青岛啤酒','副食','600ml/瓶*12瓶/件','件','瓶',12,10,24],
+['FS012','郫县恒丰源豆瓣酱','副食','4kg/桶*4桶/件','件','桶',4,2,3],
+['FS013','湘汝小米辣','副食','2kg/包*6包/件','件','包',6,3,5],
+['FS014','南亚保鲜膜','副食','45cm*400cm/13.2斤/卷*6卷/件','件','卷',6,5,8],
+['FS015','陶华碧老干妈','副食','280g/瓶*24瓶/件','件','瓶',24,5,8],
+['FS016','海天排骨酱','副食','2.2kg/桶*6桶/件','件','桶',6,1,2],
+['FS017','海天柱候酱','副食','2.2kg/桶*6桶/件','件','桶',6,1,2],
+['FS018','东古南乳','副食','320g/瓶*12瓶/件','件','瓶',12,1,2],
+['FS019','广合腐乳','副食','300g/瓶*12瓶/件','件','瓶',12,3,5],
+['FS020','乌江榨菜','副食','800g/包*10包/件','件','包',10,5,8],
+['FS021','海天特级金标生抽','副食','500ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS022','恒顺陈醋','副食','500ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS023','五丰黎红花椒油','副食','330ml/瓶*12瓶/件','件','瓶',12,1,2],
+['FS024','李锦记蒸鱼豉油','副食','410ml/瓶*12瓶/件','件','瓶',12,3,5],
+['FS025','李锦记纯香芝麻油','副食','410ml/瓶*12瓶/件','件','瓶',12,3,5],
+['FS026','海天老抽王','副食','1.9L/瓶*6瓶/件','件','瓶',6,3,5],
+['FS027','海天金字蚝油','副食','6kg/桶*2桶/件','件','桶',2,2,3],
+['FS028','海天金标生抽','副食','1.9L/瓶*6瓶/件','件','瓶',6,3,6],
+['FS029','圣塔花雕酒','副食','600ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS030','美味明记广东米酒','副食','610ml/瓶*12瓶/件','件','瓶',12,5,8],
+['FS031','深井食用碘盐','副食','2.5kg/包*10包/件','件','包',10,5,8],
+['FS032','致美斋9度糯米醋','副食','630ml/瓶*12瓶/件','件','瓶',12,3,5],
 ].map(([id,name,cat,spec,inUnit,outUnit,ratio,min,init])=>({id,name,category:cat,spec,inboundUnit:outUnit,unit:outUnit,outboundUnit:outUnit,unitRatio:1,minStock:min,initStock:init,active:true})),
 
-SAMPLE_IN:[].map(([id,date,wh,iid,nm,qty,pd,ed,price,amt,op,rm])=>({id,date,warehouse:wh,itemId:iid,itemName:nm,quantity:qty,productionDate:pd,expiryDate:ed,unitPrice:price,totalAmount:amt,operator:op,remark:rm})),
+SAMPLE_IN:[
+['IN20260715001','2026-07-15','主食','ZS006','东莞米粉',20,'2026-07-10','2026-10-10',15,300,'张三','正常采购'],
+['IN20260715002','2026-07-15','主食','ZS001','东北大米',15,'2026-07-01','2027-01-01',45,675,'张三','正常采购'],
+['IN20260716001','2026-07-16','副食','FS006','莲花高纯味精',5,'2026-06-01','2027-06-01',18,90,'张三','正常采购'],
+['IN20260716002','2026-07-16','副食','FS028','海天金标生抽',12,'2026-06-15','2027-06-15',12,144,'张三','正常采购'],
+['IN20260718001','2026-07-18','主食','ZS002','福掌柜非转基因一级大豆油',5,'2026-07-01','2027-01-01',120,600,'张三','正常采购'],
+].map(([id,date,wh,iid,nm,qty,pd,ed,price,amt,op,rm])=>({id,date,warehouse:wh,itemId:iid,itemName:nm,quantity:qty,productionDate:pd,expiryDate:ed,unitPrice:price,totalAmount:amt,operator:op,remark:rm})),
 
-SAMPLE_OUT:[].map(([id,date,wh,iid,nm,qty,rq,tm,op,rm])=>({id,date,warehouse:wh,itemId:iid,itemName:nm,quantity:qty,requester:rq,team:tm,operator:op,remark:rm})),
+SAMPLE_OUT:[
+['OUT20260716001','2026-07-16','主食','ZS006','东莞米粉',3,'韩显文','厨师组','张三','日常领用'],
+['OUT20260716002','2026-07-16','主食','ZS001','东北大米',2,'朱益明','厨师组','张三','日常领用'],
+['OUT20260717001','2026-07-17','副食','FS006','莲花高纯味精',1,'韩显文','厨师组','张三','日常领用'],
+['OUT20260717002','2026-07-17','副食','FS028','海天金标生抽',2,'陈仕庭','面点组','张三','日常领用'],
+['OUT20260718001','2026-07-18','主食','ZS002','福掌柜非转基因一级大豆油',1,'韦月芬','加工组','张三','日常领用'],
+].map(([id,date,wh,iid,nm,qty,rq,tm,op,rm])=>({id,date,warehouse:wh,itemId:iid,itemName:nm,quantity:qty,requester:rq,team:tm,operator:op,remark:rm})),
 
 init(){
   this.load();
@@ -1029,6 +1062,7 @@ pageSettings(){
       <button class="btn btn-out btn-block" style="margin-bottom:10px" onclick="App.exportBackup()">📥 导出数据备份（JSON）</button>
       <button class="btn btn-out btn-block" style="margin-bottom:10px" onclick="document.getElementById('importFile').click()">📤 导入数据备份</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="App.importBackup(this.files[0])">
+      <button class="btn btn-del btn-block" style="margin-bottom:10px" onclick="App.resetStockZero()">🔄 数据清零重置（库存归零+清空出库+修正单位）</button>
       <button class="btn btn-del btn-block" style="margin-bottom:10px" onclick="App.clearSampleData()">🗑️ 清除示例数据</button>
       <button class="btn btn-del btn-block" onclick="App.resetAll()">⚠️ 重置全部数据</button>
     </div>
@@ -1138,7 +1172,7 @@ importInboundExcel(file){
   reader.onload=(e)=>{
     try{
       const data=new Uint8Array(e.target.result);
-      const wb=XLSX.read(data,{type:'array'});
+      const wb=XLSX.read(data,{type:'array',cellDates:true});
       const ws=wb.Sheets[wb.SheetNames[0]];
       const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
       if(!rows.length){this.toast('Excel文件为空','err');return;}
@@ -1154,30 +1188,34 @@ importInboundExcel(file){
         if(!qty||qty<=0){errors.push(`第${rowNum}行：${name} 数量无效`);return;}
         // 匹配物料
         const item=this.state.items.find(i=>i.name===name&&i.active);
-        if(!item){
+        let target=item;
+        if(!target){
           // 模糊匹配
           const fuzzy=this.state.items.find(i=>i.active&&i.name.includes(name));
           if(!fuzzy){errors.push(`第${rowNum}行：${name} 未在系统物料清单中找到`);return;}
-          parsed.push({rowNum,item:fuzzy,name:fuzzy.name,qty,rawName:name});
-        }else{
-          parsed.push({rowNum,item,name,qty,rawName:name});
+          target=fuzzy;
         }
+        // 导入时套用单位修正规则（纽麦福牛奶→件，韩国金拉面→箱）
+        const ov=this.unitOverrideFor(target.name);
+        if(ov){target.unit=ov;target.inboundUnit=ov;target.outboundUnit=ov;}
+        parsed.push({rowNum,item:target,name:target.name,qty,rawName:name});
         const p=parsed[parsed.length-1];
-        p.productionDate=String(row['生产日期']||'').trim();
+        p.productionDate=this.parseExcelDate(row['生产日期']);
+        const expiryFromSheet=this.parseExcelDate(row['保质期至']);
         // 保质期(月) → 计算保质期至
         const shelfMonths=parseInt(row['保质期(月)']||row['保质期']||0);
-        if(p.productionDate&&shelfMonths>0){
+        if(expiryFromSheet){
+          p.expiryDate=expiryFromSheet;
+        }else if(p.productionDate&&shelfMonths>0){
           const pd=new Date(p.productionDate);
-          if(!isNaN(pd)){
+          if(!isNaN(pd.getTime())){
             pd.setMonth(pd.getMonth()+shelfMonths);
-            p.expiryDate=pd.toISOString().slice(0,10);
+            p.expiryDate=pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0')+'-'+String(pd.getDate()).padStart(2,'0');
           }
-        }else{
-          p.expiryDate=String(row['保质期至']||'').trim();
         }
         p.unitPrice=parseFloat(row['单价(元)']||row['单价']||0)||0;
         p.totalAmount=p.unitPrice*p.qty;
-        p.date=String(row['入库日期']||'').trim()||today;
+        p.date=this.parseExcelDate(row['入库日期'])||today;
       });
       // 显示预览
       const previewEl=document.getElementById('importPreview');
@@ -1211,6 +1249,27 @@ importInboundExcel(file){
   reader.readAsArrayBuffer(file);
   // 清空file input以便重复选择同一文件
   document.getElementById('inboundExcelFile').value='';
+},
+
+unitOverrideFor(name){
+  if(name.includes('纽麦福全脂高钙')||name.includes('纽麦福脱脂高钙'))return '件';
+  if(name.includes('韩国金拉面'))return '箱';
+  return null;
+},
+
+applyUnitOverrides(){
+  this.state.items.forEach(i=>{const u=this.unitOverrideFor(i.name);if(u){i.unit=u;i.inboundUnit=u;i.outboundUnit=u;}});
+},
+
+resetStockZero(){
+  if(!confirm('确认执行「数据清零重置」：\n1. 所有物料库存数量清零（期初归零）\n2. 全部出库明细清空\n3. 修正指定物料单位（纽麦福牛奶→件，韩国金拉面→箱）\n\n此操作会清空当前所有库存与出库记录，导入新表前请先确认已备份！'))return;
+  this.state.items.forEach(i=>{i.initStock=0;});
+  this.applyUnitOverrides();
+  this.state.inbound=[];
+  this.state.outbound=[];
+  this.save();
+  this.toast('已清零库存、清空出库并修正单位，请到「入库」页导入新表','ok');
+  this.render();
 },
 
 confirmImportInbound(){
@@ -1640,6 +1699,69 @@ getWeekday(dateStr){
   if(isNaN(d))return '';
   const days=['星期日','星期一','星期二','星期三','星期四','星期五','星期六'];
   return days[d.getDay()];
+},
+
+// 解析Excel中的日期：兼容JS Date对象、Excel序列号、YYYY-MM-DD、YYYY/MM/DD、MM/DD/YYYY等
+parseExcelDate(val){
+  if(val===undefined||val===null||val==='')return '';
+  // JS Date对象
+  if(val instanceof Date){
+    if(isNaN(val.getTime()))return '';
+    const y=val.getFullYear();
+    if(y<1900||y>2100)return '';
+    return y+'-'+String(val.getMonth()+1).padStart(2,'0')+'-'+String(val.getDate()).padStart(2,'0');
+  }
+  // 数字：Excel序列号日期（正数且大于60，避免普通数字被误转）
+  if(typeof val==='number'&&!isNaN(val)&&val>60){
+    // Excel 1900日期系统：0=1899-12-30；转成UTC时间戳避免时区偏移
+    const d=new Date((val-25569)*86400*1000);
+    if(!isNaN(d.getTime())){
+      const y=d.getUTCFullYear();
+      if(y>=1900&&y<=2100){
+        return y+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+      }
+    }
+  }
+  let s=String(val).trim();
+  if(!s)return '';
+  // 去掉可能的前导+号（如Excel误格式化的+046203-12）
+  if(s.startsWith('+'))s=s.slice(1).trim();
+  if(!s)return '';
+  // 若去掉+号后是纯数字（含小数），按Excel序列号处理；小于等于60的忽略，避免"0"被解析为2000年
+  if(/^[\d.]+$/.test(s)){
+    const n=parseFloat(s);
+    if(!isNaN(n)&&n>60){
+      const d=new Date((n-25569)*86400*1000);
+      if(!isNaN(d.getTime())){
+        const y=d.getUTCFullYear();
+        if(y>=1900&&y<=2100){
+          return y+'-'+String(d.getUTCMonth()+1).padStart(2,'0')+'-'+String(d.getUTCDate()).padStart(2,'0');
+        }
+      }
+    }
+    return '';
+  }
+  // 直接匹配 YYYY-MM-DD
+  let m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  // 匹配 YYYY/MM/DD
+  m=s.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+  if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  // 匹配 MM/DD/YYYY
+  m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m)return m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0');
+  // 匹配 YYYY年M月D日
+  m=s.match(/^(\d{4})年(\d{1,2})月(\d{1,2})日$/);
+  if(m)return m[1]+'-'+m[2].padStart(2,'0')+'-'+m[3].padStart(2,'0');
+  // 兜底：尝试通用Date解析
+  const d=new Date(s);
+  if(!isNaN(d.getTime())){
+    const y=d.getFullYear();
+    if(y>=1900&&y<=2100){
+      return y+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    }
+  }
+  return '';
 },
 
 exportOutboundDetail(){
